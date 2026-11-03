@@ -1,0 +1,10 @@
+# Cegah orang melihat isi folder
+Options -Indexes
+
+# Arahkan halaman default ke folder public (opsional, tergantung struktur)
+DirectoryIndex public/index.php index.php
+
+# Blokir akses langsung ke file konfigurasi sensitif
+<FilesMatch "^(database\.php|functions\.php|\.env)$">
+    Require all denied
+</FilesMatch>
