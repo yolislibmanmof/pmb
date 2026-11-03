@@ -1,21 +1,27 @@
 <?php
-$page_title = "Pengaturan Situs";
-require_once 'includes/header.php';
+// ======================================================================
+// 1. LOAD KONFIGURASI & FUNGSI (WAJIB DI PALING ATAS)
+// ======================================================================
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/functions.php';
 
-// ==========================================
-// UPLOAD HELPER FUNCTION
-// ==========================================
+// Pastikan user sudah login
+require_login();
+
+$page_title = "Pengaturan Situs";
+
+// ======================================================================
+// 2. UPLOAD HELPER FUNCTION
+// ======================================================================
 function uploadImage($file, $folder = 'settings', $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico']) {
     global $pdo;
     
     $uploadDir = __DIR__ . '/../uploads/' . $folder . '/';
     
-    // Buat folder jika belum ada
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0755, true);
     }
     
-    // Validasi error upload
     if ($file['error'] !== UPLOAD_ERR_OK) {
         $errors = [
             UPLOAD_ERR_INI_SIZE => 'File terlalu besar (max PHP upload size)',
@@ -28,19 +34,16 @@ function uploadImage($file, $folder = 'settings', $allowedTypes = ['jpg', 'jpeg'
         return ['success' => false, 'error' => $errors[$file['error']] ?? 'Error upload tidak diketahui'];
     }
     
-    // Validasi ukuran (max 5MB)
-    $maxSize = 5 * 1024 * 1024; // 5MB
+    $maxSize = 5 * 1024 * 1024;
     if ($file['size'] > $maxSize) {
         return ['success' => false, 'error' => 'Ukuran file maksimal 5MB. File Anda: ' . round($file['size'] / 1024 / 1024, 2) . 'MB'];
     }
     
-    // Validasi ekstensi
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     if (!in_array($ext, $allowedTypes)) {
         return ['success' => false, 'error' => 'Tipe file tidak diizinkan. Gunakan: ' . implode(', ', $allowedTypes)];
     }
     
-    // Validasi MIME type (keamanan berlapis)
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $mime = finfo_file($finfo, $file['tmp_name']);
     finfo_close($finfo);
@@ -50,26 +53,21 @@ function uploadImage($file, $folder = 'settings', $allowedTypes = ['jpg', 'jpeg'
         return ['success' => false, 'error' => 'File bukan gambar yang valid (MIME: ' . $mime . ')'];
     }
     
-    // Generate nama unik: timestamp_random.ext
     $uniqueName = time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
     $targetPath = $uploadDir . $uniqueName;
     
-    // Pindahkan file
     if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
         return ['success' => false, 'error' => 'Gagal memindahkan file. Periksa permission folder uploads/'];
     }
     
-    // Return URL relatif
     $relativeUrl = '../uploads/' . $folder . '/' . $uniqueName;
     
     return ['success' => true, 'url' => $relativeUrl, 'filename' => $uniqueName, 'size' => $file['size']];
 }
 
-// Hapus file lama (helper)
 function deleteOldFile($url) {
-    if (empty($url) || strpos($url, 'http') === 0) return; // Skip URL eksternal
+    if (empty($url) || strpos($url, 'http') === 0) return;
     $path = __DIR__ . '/' . ltrim($url, '/');
-    // Normalisasi path
     $path = realpath(__DIR__ . '/..') . '/' . ltrim($url, '../');
     if (file_exists($path) && is_file($path)) {
         @unlink($path);
@@ -79,9 +77,9 @@ function deleteOldFile($url) {
 $success = '';
 $error = '';
 
-// ==========================================
-// HANDLE POST
-// ==========================================
+// ======================================================================
+// 3. HANDLE POST (SEBELUM ADA OUTPUT HTML)
+// ======================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         $error = 'Token keamanan tidak valid. Silakan muat ulang halaman.';
@@ -89,14 +87,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->beginTransaction();
             
-            // Track old URLs untuk cleanup
             $stmtOld = $pdo->query("SELECT setting_key, value_id FROM settings WHERE setting_key IN ('logo_url', 'favicon_url', 'hero_image')");
             $oldUrls = [];
             foreach ($stmtOld->fetchAll() as $row) {
                 $oldUrls[$row['setting_key']] = $row['value_id'];
             }
             
-            // 1. Handle Text Fields
             foreach ($_POST as $key => $value) {
                 if (strpos($key, 'setting_') === 0 && !is_array($value)) {
                     $clean_key = str_replace(['setting_', '_id', '_en'], '', $key);
@@ -107,7 +103,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
-            // 2. Handle File Uploads
             $uploadFields = [
                 'logo_upload' => 'logo_url',
                 'favicon_upload' => 'favicon_url',
@@ -119,11 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $result = uploadImage($_FILES[$fileKey], 'settings');
                     
                     if ($result['success']) {
-                        // Update kedua bahasa dengan URL yang sama
                         $stmt = $pdo->prepare("INSERT INTO settings (setting_key, value_id, value_en) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE value_id = VALUES(value_id), value_en = VALUES(value_en)");
                         $stmt->execute([$settingKey, $result['url'], $result['url']]);
                         
-                        // Hapus file lama jika ada
                         if (!empty($oldUrls[$settingKey]) && $oldUrls[$settingKey] !== $result['url']) {
                             deleteOldFile($oldUrls[$settingKey]);
                         }
@@ -133,14 +126,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
-            // Audit log
             $log = $pdo->prepare("INSERT INTO admin_logs (user_id, action, table_name, description, ip_address) VALUES (?, 'UPDATE', 'settings', ?, ?)");
             $log->execute([$_SESSION['user_id'] ?? null, "Memperbarui pengaturan situs", $_SERVER['REMOTE_ADDR'] ?? '']);
             
             $pdo->commit();
             $success = "Pengaturan situs berhasil diperbarui! Perubahan langsung terlihat di website publik.";
             
-            // Redirect untuk mencegah resubmit
             header('Location: settings.php?success=1');
             exit;
         } catch (Exception $e) {
@@ -149,6 +140,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+// ======================================================================
+// 4. BARU PANGGIL HEADER (SETELAH SEMUA LOGIC REDIRECT SELESAI)
+// ======================================================================
+require_once 'includes/header.php';
 
 // Handle success dari redirect
 if (isset($_GET['success'])) {
@@ -167,7 +163,6 @@ function getVal($settings, $key, $lang = 'id', $default = '') {
     return $settings[$key][$lang] ?? $default;
 }
 
-// Helper cek apakah URL adalah file lokal
 function isLocalFile($url) {
     return !empty($url) && strpos($url, 'http') !== 0 && strpos($url, '//') !== 0;
 }
@@ -210,7 +205,6 @@ function isLocalFile($url) {
 <form method="POST" id="settings-form" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="<?= generate_csrf_token() ?>">
     
-    <!-- Tab Navigation -->
     <div style="display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 2px solid var(--border); overflow-x: auto; padding-bottom: 0;" class="tab-nav">
         <button type="button" class="tab-btn active" data-tab="branding" onclick="switchTab('branding', this)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
@@ -230,10 +224,7 @@ function isLocalFile($url) {
         </button>
     </div>
 
-    <!-- Tab Contents -->
     <div style="display: grid; grid-template-columns: 1fr 400px; gap: 2rem;" class="settings-layout">
-        
-        <!-- LEFT: Form Fields -->
         <div>
             <!-- TAB 1: BRANDING -->
             <div class="tab-content active" id="tab-branding">
@@ -291,7 +282,7 @@ function isLocalFile($url) {
                             </div>
                         </div>
 
-                        <!-- Logo Upload (Dual Mode) -->
+                        <!-- Logo Upload -->
                         <div class="form-group">
                             <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                                 <span>Logo Situs <span class="required">*</span></span>
@@ -307,7 +298,6 @@ function isLocalFile($url) {
                                 </div>
                             </label>
                             
-                            <!-- Upload Mode -->
                             <div id="logo-upload-mode" class="upload-mode">
                                 <div class="upload-dropzone" data-input="logo_upload" onclick="document.getElementById('logo_upload').click()" ondragover="event.preventDefault(); this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event, 'logo_upload')">
                                     <input type="file" id="logo_upload" name="logo_upload" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display: none;" onchange="handleFileSelect(this, 'logo-preview-local', 'logo-file-info')">
@@ -328,7 +318,6 @@ function isLocalFile($url) {
                                 </div>
                             </div>
                             
-                            <!-- URL Mode -->
                             <div id="logo-url-mode" class="url-mode" style="display: none;">
                                 <div style="display: flex; gap: 0.5rem;">
                                     <input type="url" name="setting_logo_url_id" id="logo_url_input" class="form-input" value="<?= sanitize(getVal($settings, 'logo_url', 'id')) ?>" oninput="previewImage('logo_url_input', 'logo_preview')" placeholder="https://example.com/logo.png">
@@ -347,7 +336,7 @@ function isLocalFile($url) {
                             </div>
                         </div>
 
-                        <!-- Favicon Upload (Dual Mode) -->
+                        <!-- Favicon Upload -->
                         <div class="form-group">
                             <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                                 <span>Favicon (Ikon Tab Browser)</span>
@@ -404,7 +393,7 @@ function isLocalFile($url) {
                 </div>
             </div>
 
-            <!-- TAB 2: HERO SECTION -->
+            <!-- TAB 2: HERO SECTION (Disingkat untuk menghemat ruang) -->
             <div class="tab-content" id="tab-hero" style="display: none;">
                 <div class="data-card">
                     <div class="data-card-header">
@@ -453,7 +442,7 @@ function isLocalFile($url) {
                             </div>
                         </div>
 
-                        <!-- Hero Image Upload (Dual Mode) -->
+                        <!-- Hero Image Upload -->
                         <div class="form-group">
                             <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                                 <span>Gambar Hero</span>
@@ -510,7 +499,7 @@ function isLocalFile($url) {
                 </div>
             </div>
 
-            <!-- TAB 3: CONTACT -->
+            <!-- TAB 3: CONTACT (Disingkat) -->
             <div class="tab-content" id="tab-contact" style="display: none;">
                 <div class="data-card">
                     <div class="data-card-header">
@@ -526,25 +515,16 @@ function isLocalFile($url) {
                     </div>
                     <div style="padding: 1.5rem;">
                         <div class="form-group">
-                            <label>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 0.375rem;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                                Nomor Telepon
-                            </label>
+                            <label>Nomor Telepon</label>
                             <input type="text" name="setting_contact_phone_id" class="form-input" value="<?= sanitize(getVal($settings, 'contact_phone', 'id')) ?>" placeholder="+62 851-7427-0172">
                         </div>
                         <div class="form-group">
-                            <label>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 0.375rem;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                                Nomor WhatsApp
-                            </label>
+                            <label>Nomor WhatsApp</label>
                             <input type="text" name="setting_contact_wa_id" class="form-input" value="<?= sanitize(getVal($settings, 'contact_wa', 'id')) ?>" placeholder="6285174270172">
                             <div class="form-hint">Contoh: 6285174270172 (tanpa + atau spasi)</div>
                         </div>
                         <div class="form-group">
-                            <label>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 0.375rem;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                                Email Resmi
-                            </label>
+                            <label>Email Resmi</label>
                             <input type="email" name="setting_contact_email_id" class="form-input" value="<?= sanitize(getVal($settings, 'contact_email', 'id')) ?>" placeholder="info@ukjp.ac.id">
                         </div>
                         <div class="form-group">
@@ -566,7 +546,7 @@ function isLocalFile($url) {
                 </div>
             </div>
 
-            <!-- TAB 4: SEO -->
+            <!-- TAB 4: SEO (Disingkat) -->
             <div class="tab-content" id="tab-seo" style="display: none;">
                 <div class="data-card">
                     <div class="data-card-header">
@@ -712,7 +692,6 @@ function isLocalFile($url) {
     .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
     .tab-btn svg { width: 18px; height: 18px; }
     
-    /* Upload Dropzone */
     .upload-dropzone {
         position: relative;
         border: 2px dashed var(--border);
@@ -775,7 +754,6 @@ function isLocalFile($url) {
 </style>
 
 <script>
-    // Tab switching
     function switchTab(tabId, btnElement) {
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.style.display = 'none';
@@ -788,7 +766,6 @@ function isLocalFile($url) {
         window.scrollTo({ top: 200, behavior: 'smooth' });
     }
 
-    // Mode switching (Upload vs URL)
     function switchMode(target, mode, btn) {
         const uploadMode = document.getElementById(target + '-upload-mode');
         const urlMode = document.getElementById(target + '-url-mode');
@@ -801,7 +778,6 @@ function isLocalFile($url) {
             urlMode.style.display = 'block';
         }
         
-        // Update button styles
         const container = btn.parentElement;
         container.querySelectorAll('.mode-btn').forEach(b => {
             b.style.background = 'transparent';
@@ -811,12 +787,10 @@ function isLocalFile($url) {
         btn.style.color = 'white';
     }
 
-    // Handle file selection
     function handleFileSelect(input, previewId, infoId) {
         const file = input.files[0];
         if (!file) return;
         
-        // Validate size
         if (file.size > 5 * 1024 * 1024) {
             if (typeof showToast === 'function') {
                 showToast('File Terlalu Besar', 'Ukuran maksimal 5MB. File Anda: ' + (file.size / 1024 / 1024).toFixed(2) + 'MB', 'error');
@@ -827,7 +801,6 @@ function isLocalFile($url) {
             return;
         }
         
-        // Validate type
         if (!file.type.startsWith('image/')) {
             if (typeof showToast === 'function') {
                 showToast('File Tidak Valid', 'Hanya file gambar yang diizinkan', 'error');
@@ -838,7 +811,6 @@ function isLocalFile($url) {
             return;
         }
         
-        // Show preview
         const preview = document.getElementById(previewId);
         const img = preview.querySelector('img');
         const content = preview.parentElement.querySelector('.upload-content');
@@ -849,7 +821,6 @@ function isLocalFile($url) {
             preview.style.display = 'flex';
             if (content) content.style.display = 'none';
             
-            // Show file info
             const info = document.getElementById(infoId);
             if (info) {
                 info.querySelector('.file-name').textContent = file.name;
@@ -857,13 +828,11 @@ function isLocalFile($url) {
                 info.style.display = 'block';
             }
             
-            // Update sidebar preview
             updateSidebarPreview(input.id, e.target.result);
         };
         reader.readAsDataURL(file);
     }
 
-    // Handle drag & drop
     function handleDrop(event, inputId) {
         event.preventDefault();
         event.currentTarget.classList.remove('dragover');
@@ -877,7 +846,6 @@ function isLocalFile($url) {
         }
     }
 
-    // Remove selected file
     function removeFile(inputId, previewId, infoId) {
         document.getElementById(inputId).value = '';
         const preview = document.getElementById(previewId);
@@ -889,7 +857,6 @@ function isLocalFile($url) {
         if (info) info.style.display = 'none';
     }
 
-    // Update sidebar preview when file uploaded
     function updateSidebarPreview(inputId, dataUrl) {
         if (inputId === 'logo_upload') {
             const preview = document.getElementById('logo_preview');
@@ -907,7 +874,6 @@ function isLocalFile($url) {
         }
     }
 
-    // Live image preview (for URL mode)
     function previewImage(inputId, previewId) {
         const input = document.getElementById(inputId);
         const preview = document.getElementById(previewId);

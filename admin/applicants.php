@@ -1,14 +1,22 @@
 <?php
+// ======================================================================
+// 1. LOAD KONFIGURASI & FUNGSI (WAJIB DI PALING ATAS)
+// ======================================================================
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/functions.php';
+
+// Pastikan user sudah login
+require_login();
+
 $page_title = "Data Pendaftar";
 $breadcrumbs = [
     ['label' => 'Dashboard', 'url' => 'index.php'],
     ['label' => 'Data Pendaftar']
 ];
-require_once 'includes/header.php';
 
-// ==========================================
-// HANDLE POST ACTIONS
-// ==========================================
+// ======================================================================
+// 2. HANDLE POST ACTIONS (SEBELUM ADA OUTPUT HTML)
+// ======================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         die('CSRF Error');
@@ -49,6 +57,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Location: applicants.php' . (!empty($_GET) ? '?' . http_build_query($_GET) : ''));
     exit;
 }
+
+// ======================================================================
+// 3. BARU PANGGIL HEADER (SETELAH SEMUA LOGIC REDIRECT SELESAI)
+// ======================================================================
+require_once 'includes/header.php';
 
 // ==========================================
 // FILTERS

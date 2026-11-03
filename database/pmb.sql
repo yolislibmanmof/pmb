@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Nov 03, 2026 at 05:28 AM
+-- Generation Time: Nov 03, 2026 at 11:14 AM
 -- Server version: 5.7.39
 -- PHP Version: 8.2.28
 
@@ -40,6 +40,26 @@ CREATE TABLE `admin_logs` (
   `user_agent` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `admin_logs`
+--
+
+INSERT INTO `admin_logs` (`id`, `user_id`, `action`, `table_name`, `record_id`, `description`, `old_data`, `new_data`, `ip_address`, `user_agent`, `created_at`) VALUES
+(1, 1, 'DELETE', 'gelombang', 2, 'Menghapus gelombang ID: 2', NULL, NULL, '::1', NULL, '2026-11-03 09:10:38'),
+(2, 1, 'DELETE', 'gelombang', 1, 'Menghapus gelombang ID: 1', NULL, NULL, '::1', NULL, '2026-11-03 09:15:58'),
+(3, 1, 'CREATE', 'gelombang', 3, 'Menambah gelombang: Gelombang Tes', NULL, NULL, '::1', NULL, '2026-11-03 09:17:02'),
+(4, 1, 'DELETE', 'gelombang', 3, 'Menghapus gelombang ID: 3', NULL, NULL, '::1', NULL, '2026-11-03 09:23:12'),
+(5, 1, 'CREATE', 'gelombang', 4, 'Menambah gelombang: Gelombang Tes', NULL, NULL, '::1', NULL, '2026-11-03 09:26:44'),
+(6, 1, 'DELETE', 'gelombang', 4, 'Menghapus gelombang ID: 4', NULL, NULL, '::1', NULL, '2026-11-03 09:26:52'),
+(7, 1, 'ADD', 'news', 1, 'Menambah berita: TES', NULL, NULL, '::1', NULL, '2026-11-03 09:31:12'),
+(8, 1, 'CREATE', 'prodi', NULL, 'Menambah prodi: Pendidikan Matematika', NULL, NULL, '::1', NULL, '2026-11-03 09:51:18'),
+(9, 1, 'UPDATE', 'prodi', 12, 'Mengupdate prodi ID: 12', NULL, NULL, '::1', NULL, '2026-11-03 09:51:53'),
+(10, 1, 'UPDATE', 'prodi', 12, 'Mengupdate prodi ID: 12', NULL, NULL, '::1', NULL, '2026-11-03 09:53:56'),
+(11, 1, 'UPDATE', 'prodi', 12, 'Mengupdate prodi ID: 12', NULL, NULL, '::1', NULL, '2026-11-03 09:55:25'),
+(12, 1, 'UPDATE', 'prodi', 12, 'Mengupdate prodi ID: 12', NULL, NULL, '::1', NULL, '2026-11-03 10:12:15'),
+(13, 1, 'UPDATE', 'settings', NULL, 'Memperbarui pengaturan situs', NULL, NULL, '::1', NULL, '2026-11-03 10:23:36'),
+(14, NULL, 'LOGIN_SUCCESS', 'users', NULL, 'Login berhasil', NULL, NULL, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36', '2026-11-03 10:28:02');
 
 -- --------------------------------------------------------
 
@@ -177,14 +197,6 @@ CREATE TABLE `gelombang` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
---
--- Dumping data for table `gelombang`
---
-
-INSERT INTO `gelombang` (`id`, `nama`, `tahun_akademik`, `tanggal_mulai`, `tanggal_selesai`, `biaya_pendaftaran`, `is_open`, `description`, `created_at`) VALUES
-(1, 'Gelombang 1', '2027/2028', '2026-10-01', '2026-12-31', 200000.00, 1, 'Pendaftaran gelombang pertama dengan potongan biaya', '2026-11-03 01:49:52'),
-(2, 'Gelombang 2', '2027/2028', '2027-01-01', '2027-03-31', 250000.00, 0, 'Pendaftaran gelombang kedua', '2026-11-03 01:49:52');
-
 -- --------------------------------------------------------
 
 --
@@ -221,6 +233,7 @@ INSERT INTO `jalur_pendaftaran` (`id`, `nama_jalur`, `kode_jalur`, `biaya_tambah
 
 CREATE TABLE `menus` (
   `id` int(11) NOT NULL,
+  `parent_id` int(11) DEFAULT '0',
   `label_id` varchar(100) NOT NULL,
   `label_en` varchar(100) NOT NULL,
   `url` varchar(255) NOT NULL,
@@ -236,12 +249,12 @@ CREATE TABLE `menus` (
 -- Dumping data for table `menus`
 --
 
-INSERT INTO `menus` (`id`, `label_id`, `label_en`, `url`, `icon`, `target`, `menu_position`, `sort_order`, `is_active`, `created_at`) VALUES
-(1, 'Beranda', 'Home', 'index.php', NULL, '_self', 'header', 1, 1, '2026-11-03 01:49:53'),
-(2, 'Program Studi', 'Programs', 'prodi.php', NULL, '_self', 'header', 2, 1, '2026-11-03 01:49:53'),
-(3, 'Alur Pendaftaran', 'Registration Flow', 'alur.php', NULL, '_self', 'header', 3, 1, '2026-11-03 01:49:53'),
-(4, 'Kontak', 'Contact', 'kontak.php', NULL, '_self', 'header', 4, 1, '2026-11-03 01:49:53'),
-(5, 'Daftar Sekarang', 'Register Now', 'register.php', NULL, '_self', 'header', 5, 1, '2026-11-03 01:49:53');
+INSERT INTO `menus` (`id`, `parent_id`, `label_id`, `label_en`, `url`, `icon`, `target`, `menu_position`, `sort_order`, `is_active`, `created_at`) VALUES
+(1, 0, 'Beranda', 'Home', 'index.php', NULL, '_self', 'header', 1, 1, '2026-11-03 01:49:53'),
+(2, 0, 'Program Studi', 'Programs', 'prodi.php', NULL, '_self', 'header', 2, 1, '2026-11-03 01:49:53'),
+(3, 0, 'Alur Pendaftaran', 'Registration Flow', 'alur.php', NULL, '_self', 'header', 3, 1, '2026-11-03 01:49:53'),
+(4, 0, 'Kontak', 'Contact', 'kontak.php', NULL, '_self', 'header', 4, 1, '2026-11-03 01:49:53'),
+(5, 0, 'Daftar Sekarang', 'Register Now', 'register.php', NULL, '_self', 'header', 5, 1, '2026-11-03 01:49:53');
 
 -- --------------------------------------------------------
 
@@ -265,6 +278,13 @@ CREATE TABLE `news` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `news`
+--
+
+INSERT INTO `news` (`id`, `title_id`, `title_en`, `slug`, `content_id`, `content_en`, `thumbnail_url`, `category`, `author_id`, `views`, `is_published`, `published_at`, `created_at`, `updated_at`) VALUES
+(1, 'TES', 'TEST', 'tes', 'TES', 'TEST', '../uploads/berita/1793698272_3cafdcd3.jpg', 'PENGUMUMAN', 1, 0, 1, '2026-11-03 16:30:00', '2026-11-03 09:31:12', '2026-11-03 09:31:12');
 
 -- --------------------------------------------------------
 
@@ -324,17 +344,12 @@ CREATE TABLE `prodi` (
 --
 
 INSERT INTO `prodi` (`id`, `kode_prodi`, `jenjang`, `nama_prodi`, `sistem_kuliah`, `akreditasi`, `gelar_lulusan`, `kuota`, `biaya_spp`, `biaya_pangkal`, `jalur_count`, `description_id`, `description_en`, `image_url`, `is_active`, `sort_order`, `created_at`, `updated_at`) VALUES
-(1, 'S1-MR', 'S1', 'Manajemen Ritel', 'Reguler', 'A', 'S.M.', 80, 3500000.00, 5000000.00, 2, 'Program studi unggulan bidang manajemen ritel modern dan kewirausahaan.', 'Leading study program in modern retail management and entrepreneurship.', 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=800&q=80', 1, 1, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
 (2, 'S1-BD', 'S1', 'Bisnis Digital', 'Reguler', 'A', 'S.Kom.', 60, 4000000.00, 6000000.00, 2, 'Mencetak wirausaha digital yang kompeten, inovatif, dan siap menghadapi era industri 4.0.', 'Creating competent, innovative digital entrepreneurs ready for the industry 4.0 era.', 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80', 1, 2, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
 (3, 'S1-IK', 'S1', 'Ilmu Keperawatan', 'Reguler', 'A', 'S.Kep.', 100, 4500000.00, 7000000.00, 2, 'Menghasilkan perawat profesional, berempati, dan berdaya saing global dengan standar pelayanan prima.', 'Producing professional, empathetic, and globally competitive nurses with premium service standards.', 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80', 1, 3, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
 (4, 'S1-KB', 'S1', 'Kebidanan', 'Reguler', 'B', 'S.Tr.Keb.', 80, 4000000.00, 6000000.00, 2, 'Mencetak bidan profesional yang unggul dalam pelayanan kesehatan ibu dan anak.', 'Creating professional midwives who excel in maternal and child health services.', 'https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&w=800&q=80', 1, 4, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
 (5, 'S1-KD', 'S1', 'Kedokteran', 'Reguler', 'A', 'S.Ked.', 50, 15000000.00, 25000000.00, 2, 'Program studi unggulan untuk mencetak dokter umum yang kompeten dan beretika.', 'Leading study program to produce competent and ethical general practitioners.', 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=800&q=80', 1, 5, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
 (6, 'S1-PGSD', 'S1', 'Pendidikan Guru Sekolah Dasar', 'Reguler', 'B', 'S.Pd.', 120, 3000000.00, 4000000.00, 1, 'Mencetak guru SD yang profesional, kreatif, dan inovatif dalam pembelajaran.', 'Creating professional, creative, and innovative elementary school teachers.', 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=800&q=80', 1, 6, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
-(7, 'S1-HK', 'S1', 'Hukum', 'Reguler', 'B', 'S.H.', 100, 3500000.00, 5000000.00, 2, 'Menghasilkan sarjana hukum yang berintegritas, adil, dan menguasai hukum nasional serta internasional.', 'Producing lawyers with integrity, fairness, and mastery of national and international law.', 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=800&q=80', 1, 7, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
-(8, 'S1-TS', 'S1', 'Teknik Sipil', 'Reguler', 'B', 'S.T.', 60, 4000000.00, 6000000.00, 2, 'Menghasilkan insinyur sipil yang mampu merancang dan mengawasi infrastruktur berkelanjutan.', 'Producing civil engineers capable of designing and supervising sustainable infrastructure.', 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80', 1, 8, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
-(9, 'PROF-NERS', 'Prof', 'Profesi Ners', 'Reguler', 'A', 'Ners', 50, 8000000.00, 10000000.00, 2, 'Pendidikan profesi perawat terakreditasi unggul dengan standar praktik internasional.', 'Accredited and superior nursing professional education with international practice standards.', 'https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=800&q=80', 1, 9, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
-(10, 'PROF-BIDAN', 'Prof', 'Pendidikan Profesi Bidan', 'Reguler', 'A', 'Bdn.', 40, 7000000.00, 9000000.00, 2, 'Pendidikan profesi bidan terakreditasi unggul untuk kompetensi klinis tingkat lanjut.', 'Accredited and superior midwifery professional education for advanced clinical competence.', 'https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&w=800&q=80', 1, 10, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
-(11, 'S2-KEP', 'S2', 'Keperawatan', 'Reguler', 'B', 'M.Kep.', 30, 8000000.00, 12000000.00, 1, 'Program magister untuk mencetak perawat dengan kemampuan manajerial dan spesialisasi.', 'Master program to create nurses with managerial and specialization capabilities.', 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80', 1, 11, '2026-11-03 01:49:53', '2026-11-03 01:49:53');
+(12, 'MTK', 'S1', 'Pendidikan Matematika', 'Reguler', 'Unggul', 'S.Pd', 100, 2000000.00, 1500000.00, 1, 'NaN', 'NaN', 'uploads/prodi/1793700735_cff8c7a5.jpg', 1, 0, '2026-11-03 09:51:18', '2026-11-03 10:12:15');
 
 -- --------------------------------------------------------
 
@@ -362,13 +377,13 @@ INSERT INTO `settings` (`id`, `setting_key`, `value_id`, `value_en`, `setting_gr
 (3, 'logo_url', 'https://via.placeholder.com/150x50/1e40af/ffffff?text=LOGO+UKJP', 'https://via.placeholder.com/150x50/1e40af/ffffff?text=LOGO+UKJP', 'branding', 1, '2026-11-03 01:49:53'),
 (4, 'favicon_url', 'https://via.placeholder.com/32/1e40af/ffffff?text=U', 'https://via.placeholder.com/32/1e40af/ffffff?text=U', 'branding', 1, '2026-11-03 01:49:53'),
 (5, 'hero_title', 'Wujudkan Masa Depanmu Bersama Kami', 'Shape Your Future With Us', 'hero', 1, '2026-11-03 01:49:53'),
-(6, 'hero_subtitle', 'Pendaftaran Mahasiswa Baru Tahun Akademik 2027/2028 Telah Dibuka', 'New Student Admission for Academic Year 2027/2028 is Now Open', 'hero', 1, '2026-11-03 01:49:53'),
-(7, 'hero_image', 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80', 'https://images.unsplash.com/photo-1562774053-701939374585?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80', 'hero', 1, '2026-11-03 01:49:53'),
+(6, 'hero_subtitle', 'NaN', 'NaN', 'hero', 1, '2026-11-03 10:23:36'),
+(7, 'hero_image', '../uploads/settings/1793701416_29e4ae53.png', '../uploads/settings/1793701416_29e4ae53.png', 'hero', 1, '2026-11-03 10:23:36'),
 (8, 'contact_phone', '+62 851-7427-0172', '+62 851-7427-0172', 'contact', 1, '2026-11-03 01:49:53'),
 (9, 'contact_email', 'info@ukjp.ac.id', 'info@ukjp.ac.id', 'contact', 1, '2026-11-03 01:49:53'),
-(10, 'contact_address', 'Jl. Dr. Ratulangi No 172, Palopo', 'Jl. Dr. Ratulangi No 172, Palopo', 'contact', 1, '2026-11-03 01:49:53'),
+(10, 'contact_address', 'NaN', 'NaN', 'contact', 1, '2026-11-03 10:23:36'),
 (11, 'contact_wa', '6285174270172', '6285174270172', 'contact', 1, '2026-11-03 01:49:53'),
-(12, 'meta_description', 'Portal Penerimaan Mahasiswa Baru UKJP - Universitas Kurnia Jaya Persada', 'Admission Portal of UKJP - Kurnia Jaya Persada University', 'seo', 1, '2026-11-03 01:49:53'),
+(12, 'meta_description', 'NaN', 'NaN', 'seo', 1, '2026-11-03 10:23:36'),
 (13, 'registration_fee', '200000', '200000', 'payment', 1, '2026-11-03 01:49:53'),
 (14, 'bank_account_name', 'Universitas Kurnia Jaya Persada', 'Universitas Kurnia Jaya Persada', 'payment', 1, '2026-11-03 01:49:53'),
 (15, 'bank_account_number', '1234567890', '1234567890', 'payment', 1, '2026-11-03 01:49:53'),
@@ -599,7 +614,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `admin_logs`
 --
 ALTER TABLE `admin_logs`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `applicants`
@@ -629,7 +644,7 @@ ALTER TABLE `faq`
 -- AUTO_INCREMENT for table `gelombang`
 --
 ALTER TABLE `gelombang`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `jalur_pendaftaran`
@@ -647,7 +662,7 @@ ALTER TABLE `menus`
 -- AUTO_INCREMENT for table `news`
 --
 ALTER TABLE `news`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `payments`
@@ -659,13 +674,13 @@ ALTER TABLE `payments`
 -- AUTO_INCREMENT for table `prodi`
 --
 ALTER TABLE `prodi`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `settings`
 --
 ALTER TABLE `settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
 -- AUTO_INCREMENT for table `testimonials`

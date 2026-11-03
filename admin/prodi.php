@@ -1,13 +1,54 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
+// ======================================================================
+// 1. LOAD KONFIGURASI & FUNGSI (WAJIB DI PALING ATAS)
+// ======================================================================
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/functions.php';
+
+// Pastikan user sudah login
+require_login();
+
 $page_title = "Kelola Prodi";
 $breadcrumbs = [
     ['label' => 'Dashboard', 'url' => 'index.php'],
     ['label' => 'Kelola Prodi']
 ];
-require_once 'includes/header.php';
 
-// ==========================================
-// HANDLE CRUD ACTIONS
+// ======================================================================
+// 1.5 HELPER FUNCTIONS (WAJIB DIDEFINISIKAN SEBELUM POST HANDLER)
+// ======================================================================
+if (!function_exists('formatRupiah')) {
+    function formatRupiah($num) {
+        return 'Rp ' . number_format((float)$num, 0, ',', '.');
+    }
+}
+
+if (!function_exists('uploadProdiImage')) {
+    function uploadProdiImage($file) {
+        $uploadDir = __DIR__ . '/../uploads/prodi/';
+        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+        
+        if ($file['error'] !== UPLOAD_ERR_OK) return ['success' => false, 'error' => 'Gagal upload'];
+        if ($file['size'] > 5 * 1024 * 1024) return ['success' => false, 'error' => 'Maksimal 5MB'];
+        
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) return ['success' => false, 'error' => 'Format tidak diizinkan'];
+        
+        $uniqueName = time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        if (move_uploaded_file($file['tmp_name'], $uploadDir . $uniqueName)) {
+            // Kembalikan path relatif terhadap ROOT project (konsisten dengan DB)
+            return ['success' => true, 'url' => 'uploads/prodi/' . $uniqueName];
+        }
+        return ['success' => false, 'error' => 'Gagal menyimpan file'];
+    }
+}
+
+// ======================================================================
+// 2. HANDLE CRUD ACTIONS (SEBELUM ADA OUTPUT HTML)
+// ======================================================================
 // ==========================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -18,6 +59,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     try {
         if ($action === 'add') {
+            // ===== PROSES UPLOAD GAMBAR (JIKA ADA) =====
+            $final_image_url = sanitize($_POST['image_url'] ?? '');
+            if (!empty($_FILES['prodi_image_upload']['name'])) {
+                $upload_result = uploadProdiImage($_FILES['prodi_image_upload']);
+                if ($upload_result['success']) {
+                    // Simpan path RELATIF TERHADAP ROOT PROJECT (tanpa ../)
+                    $final_image_url = 'uploads/prodi/' . basename($upload_result['url']);
+                } else {
+                    $_SESSION['toast'] = ['type' => 'error', 'title' => 'Upload Gagal', 'message' => $upload_result['error']];
+                    header('Location: prodi.php');
+                    exit;
+                }
+            }
+            
             $stmt = $pdo->prepare("INSERT INTO prodi (
                 kode_prodi, jenjang, nama_prodi, sistem_kuliah, akreditasi, gelar_lulusan,
                 kuota, biaya_spp, biaya_pangkal, jalur_count,
@@ -37,18 +92,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (int)$_POST['jalur_count'],
                 sanitize($_POST['description_id']),
                 sanitize($_POST['description_en']),
-                sanitize($_POST['image_url']),
+                $final_image_url,
                 isset($_POST['is_active']) ? 1 : 0,
                 (int)($_POST['sort_order'] ?? 0)
             ]);
             
-            // Audit log
             $log = $pdo->prepare("INSERT INTO admin_logs (user_id, action, table_name, description, ip_address) VALUES (?, 'CREATE', 'prodi', ?, ?)");
             $log->execute([$_SESSION['user_id'] ?? null, "Menambah prodi: " . sanitize($_POST['nama_prodi']), $_SERVER['REMOTE_ADDR'] ?? '']);
             
             $_SESSION['toast'] = ['type' => 'success', 'title' => 'Berhasil', 'message' => 'Program studi berhasil ditambahkan'];
         } elseif ($action === 'edit') {
             $id = (int)$_POST['id'];
+            
+            // ===== PROSES UPLOAD GAMBAR (JIKA ADA) =====
+            $final_image_url = sanitize($_POST['image_url'] ?? '');
+            if (!empty($_FILES['prodi_image_upload']['name'])) {
+                $upload_result = uploadProdiImage($_FILES['prodi_image_upload']);
+                if ($upload_result['success']) {
+                    $final_image_url = 'uploads/prodi/' . basename($upload_result['url']);
+                } else {
+                    $_SESSION['toast'] = ['type' => 'error', 'title' => 'Upload Gagal', 'message' => $upload_result['error']];
+                    header('Location: prodi.php');
+                    exit;
+                }
+            }
+            
             $stmt = $pdo->prepare("UPDATE prodi SET 
                 kode_prodi=?, jenjang=?, nama_prodi=?, sistem_kuliah=?, akreditasi=?, gelar_lulusan=?,
                 kuota=?, biaya_spp=?, biaya_pangkal=?, jalur_count=?,
@@ -68,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (int)$_POST['jalur_count'],
                 sanitize($_POST['description_id']),
                 sanitize($_POST['description_en']),
-                sanitize($_POST['image_url']),
+                $final_image_url,
                 isset($_POST['is_active']) ? 1 : 0,
                 (int)($_POST['sort_order'] ?? 0),
                 $id
@@ -101,9 +169,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['toast'] = ['type' => 'error', 'title' => 'Error', 'message' => 'Gagal: ' . $e->getMessage()];
     }
     
+    // ======================================================================
+    // 3. REDIRECT SETELAH POST (WAJIB SEBELUM HTML DICETAK)
+    // ======================================================================
     header('Location: prodi.php');
     exit;
 }
+
+// ======================================================================
+// 4. BARU PANGGIL HEADER (SETELAH SEMUA LOGIC REDIRECT SELESAI)
+// ======================================================================
+require_once 'includes/header.php';
 
 // ==========================================
 // FETCH DATA WITH STATISTICS
@@ -127,29 +203,6 @@ if (isset($_GET['edit'])) {
     $stmt = $pdo->prepare("SELECT * FROM prodi WHERE id = ?");
     $stmt->execute([(int)$_GET['edit']]);
     $edit_prodi = $stmt->fetch();
-}
-
-// Helper format rupiah
-function formatRupiah($num) {
-    return 'Rp ' . number_format($num, 0, ',', '.');
-}
-
-// Helper Upload Gambar Prodi
-function uploadProdiImage($file) {
-    $uploadDir = __DIR__ . '/../uploads/prodi/';
-    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-    
-    if ($file['error'] !== UPLOAD_ERR_OK) return ['success' => false, 'error' => 'Gagal upload'];
-    if ($file['size'] > 5 * 1024 * 1024) return ['success' => false, 'error' => 'Maksimal 5MB'];
-    
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) return ['success' => false, 'error' => 'Format tidak diizinkan'];
-    
-    $uniqueName = time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-    if (move_uploaded_file($file['tmp_name'], $uploadDir . $uniqueName)) {
-        return ['success' => true, 'url' => '../uploads/prodi/' . $uniqueName];
-    }
-    return ['success' => false, 'error' => 'Gagal menyimpan file'];
 }
 ?>
 
@@ -259,7 +312,7 @@ function uploadProdiImage($file) {
                     </td>
                     <td data-column="nama">
                         <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <img src="<?= sanitize($p['image_url']) ?>" alt="" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23e2e8f0%22%3E%3Crect width=%2224%22 height=%2224%22/%3E%3C/svg%3E'">
+                        <img src="<?= !empty($p['image_url']) ? (strpos($p['image_url'], 'http') === 0 ? sanitize($p['image_url']) : '../' . sanitize($p['image_url'])) : '' ?>" alt="" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23e2e8f0%22%3E%3Crect width=%2224%22 height=%2224%22/%3E%3C/svg%3E'">
                             <div style="min-width: 0;">
                                 <div style="font-weight: 600; font-size: 0.9rem; line-height: 1.3;"><?= sanitize($p['nama_prodi']) ?></div>
                                 <div style="font-size: 0.7rem; color: var(--text-muted);"><?= sanitize($p['gelar_lulusan'] ?: '-') ?> • <?= sanitize($p['sistem_kuliah']) ?></div>
@@ -308,9 +361,9 @@ function uploadProdiImage($file) {
                             <button class="action-btn" onclick="viewProdi(<?= $p['id'] ?>)" title="Lihat Detail" style="width: 28px; height: 28px;">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
-                            <button class="action-btn" onclick="editProdi(<?= htmlspecialchars(json_encode($p)) ?>)" title="Edit" style="width: 28px; height: 28px;">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                            </button>
+   <button class="action-btn" onclick="editProdiById(<?= $p['id'] ?>)" title="Edit" style="width: 28px; height: 28px;">
+       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+   </button>
                             <button class="action-btn danger" onclick="deleteProdi(<?= $p['id'] ?>, '<?= addslashes($p['nama_prodi']) ?>')" title="Hapus" style="width: 28px; height: 28px;">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                             </button>
@@ -341,7 +394,7 @@ function uploadProdiImage($file) {
 <!-- Add/Edit Modal (Bertab) -->
 <div class="modal-overlay" id="prodi-modal">
     <div class="modal" style="max-width: 800px;">
-        <form method="POST" id="prodi-form" data-validate>
+        <form method="POST" id="prodi-form" data-validate enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?= generate_csrf_token() ?>">
             <input type="hidden" name="action" id="form-action" value="add">
             <input type="hidden" name="id" id="form-id" value="">
@@ -550,64 +603,66 @@ function uploadProdiImage($file) {
     </div>
 </div>
 
-<style>
-    .ptab-pane { animation: fadeIn 0.3s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-    .tab-link-prodi { transition: all 0.2s ease; }
-    .tab-link-prodi:hover { color: var(--primary) !important; }
-    
-    /* Responsive Table Styles */
-    .table-wrapper {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    
-    .admin-table {
-        min-width: 1200px; /* Force minimum width for scroll */
-    }
-    
-    .admin-table th, .admin-table td {
-        white-space: nowrap;
-        padding: 0.75rem 1rem;
-    }
-    
-    /* Compact column widths */
-    .admin-table th:nth-child(1), .admin-table td:nth-child(1) { width: 50px; } /* # */
-    .admin-table th:nth-child(2), .admin-table td:nth-child(2) { width: 80px; } /* Kode */
-    .admin-table th:nth-child(3), .admin-table td:nth-child(3) { min-width: 200px; } /* Nama Prodi */
-    .admin-table th:nth-child(4), .admin-table td:nth-child(4) { width: 80px; } /* Jenjang */
-    .admin-table th:nth-child(5), .admin-table td:nth-child(5) { width: 80px; } /* Akreditasi */
-    .admin-table th:nth-child(6), .admin-table td:nth-child(6) { width: 120px; } /* Kuota */
-    .admin-table th:nth-child(7), .admin-table td:nth-child(7) { width: 150px; } /* Biaya */
-    .admin-table th:nth-child(8), .admin-table td:nth-child(8) { width: 100px; } /* Pendaftar */
-    .admin-table th:nth-child(9), .admin-table td:nth-child(9) { width: 100px; } /* Status */
-    .admin-table th:nth-child(10), .admin-table td:nth-child(10) { width: 120px; text-align: right; } /* Aksi */
-    
-    /* Smaller text for dense data */
-    .admin-table td {
-        font-size: 0.85rem;
-    }
-    
-    /* Mobile: Hide less important columns */
-    @media (max-width: 1400px) {
-        .admin-table th:nth-child(2), .admin-table td:nth-child(2) { display: none; } /* Hide Kode */
-    }
-    
-    @media (max-width: 1200px) {
-        .admin-table th:nth-child(4), .admin-table td:nth-child(4) { display: none; } /* Hide Jenjang */
-        .admin-table th:nth-child(5), .admin-table td:nth-child(5) { display: none; } /* Hide Akreditasi */
-    }
-    
-    @media (max-width: 1024px) {
-        .admin-table th:nth-child(8), .admin-table td:nth-child(8) { display: none; } /* Hide Pendaftar detail */
-    }
-</style>
+   <style>
+       .ptab-pane { animation: fadeIn 0.3s ease; }
+       @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+       .tab-link-prodi { transition: all 0.2s ease; }
+       .tab-link-prodi:hover { color: var(--primary) !important; }
+       
+       /* PERBAIKAN LAYOUT TABEL */
+       .table-wrapper {
+           overflow-x: auto;
+           -webkit-overflow-scrolling: touch;
+           width: 100%;
+       }
+       
+       .admin-table {
+           width: 100%;
+           min-width: 900px; /* Dikecilkan agar tidak terlalu memaksa */
+           border-collapse: collapse;
+       }
+       
+       .admin-table th, .admin-table td {
+           white-space: nowrap;
+           padding: 0.75rem 1rem;
+           vertical-align: middle;
+       }
+       
+       /* Pengaturan lebar kolom yang proporsional */
+       .admin-table th:nth-child(1), .admin-table td:nth-child(1) { width: 40px; text-align: center; }
+       .admin-table th:nth-child(2), .admin-table td:nth-child(2) { width: 90px; }
+       .admin-table th:nth-child(3), .admin-table td:nth-child(3) { min-width: 180px; white-space: normal; }
+       .admin-table th:nth-child(4), .admin-table td:nth-child(4) { width: 70px; }
+       .admin-table th:nth-child(5), .admin-table td:nth-child(5) { width: 80px; }
+       .admin-table th:nth-child(6), .admin-table td:nth-child(6) { width: 110px; }
+       .admin-table th:nth-child(7), .admin-table td:nth-child(7) { width: 130px; }
+       .admin-table th:nth-child(8), .admin-table td:nth-child(8) { width: 90px; }
+       .admin-table th:nth-child(9), .admin-table td:nth-child(9) { width: 90px; }
+       .admin-table th:nth-child(10), .admin-table td:nth-child(10) { width: 110px; text-align: right; }
+       
+       .admin-table td { font-size: 0.85rem; }
+       
+       /* Responsif: Sembunyikan kolom kurang penting di layar kecil */
+       @media (max-width: 1400px) {
+           .admin-table th:nth-child(2), .admin-table td:nth-child(2) { display: none; } /* Kode */
+       }
+       @media (max-width: 1200px) {
+           .admin-table th:nth-child(4), .admin-table td:nth-child(4) { display: none; } /* Jenjang */
+           .admin-table th:nth-child(5), .admin-table td:nth-child(5) { display: none; } /* Akreditasi */
+       }
+       @media (max-width: 1024px) {
+           .admin-table th:nth-child(8), .admin-table td:nth-child(8) { display: none; } /* Detail Pendaftar */
+       }
+   </style>
 
 <script>
 const prodiData = <?= json_encode($prodi_list) ?>;
 let currentProdiTab = 0;
 const prodiTabOrder = ['ptab-info', 'ptab-academic', 'ptab-desc'];
 
+// ==========================================
+// 1. TAB NAVIGATION
+// ==========================================
 function switchProdiTab(btn, tabId) {
     document.querySelectorAll('#prodi-tabs .tab-link-prodi').forEach(b => {
         b.classList.remove('active');
@@ -633,14 +688,20 @@ function changeProdiTab(dir) {
 }
 
 function updateProdiTabButtons() {
-    document.getElementById('prev-tab-btn').style.display = currentProdiTab === 0 ? 'none' : 'inline-flex';
-    document.getElementById('next-tab-btn').style.display = currentProdiTab === prodiTabOrder.length - 1 ? 'none' : 'inline-flex';
+    const prevBtn = document.getElementById('prev-tab-btn');
+    const nextBtn = document.getElementById('next-tab-btn');
+    if (prevBtn) prevBtn.style.display = currentProdiTab === 0 ? 'none' : 'inline-flex';
+    if (nextBtn) nextBtn.style.display = currentProdiTab === prodiTabOrder.length - 1 ? 'none' : 'inline-flex';
 }
 
+// ==========================================
+// 2. FORM HELPERS
+// ==========================================
 function updateCurrencyDisplay(input, displayId) {
     const value = parseInt(input.value) || 0;
     const formatted = 'Rp ' + value.toLocaleString('id-ID');
-    document.getElementById(displayId).textContent = formatted;
+    const display = document.getElementById(displayId);
+    if (display) display.textContent = formatted;
 }
 
 function resetForm() {
@@ -649,42 +710,81 @@ function resetForm() {
     document.getElementById('modal-title').textContent = 'Tambah Program Studi';
     document.getElementById('prodi-form').reset();
     document.getElementById('is_active').checked = true;
-    document.getElementById('image-preview').style.display = 'none';
     document.getElementById('spp-display').textContent = 'Rp 0';
     document.getElementById('pangkal-display').textContent = 'Rp 0';
     
-    // Reset ke tab pertama
+    // FIX: Reset image preview elements sesuai ID HTML yang sebenarnya
+    const previewLocal = document.getElementById('prodi-preview-local');
+    const uploadContent = document.getElementById('prodi-upload-content');
+    const fileInfo = document.getElementById('prodi-file-info');
+    const fileInput = document.getElementById('prodi_image_upload');
+    const urlInput = document.getElementById('image_url');
+    
+    if (previewLocal) previewLocal.style.display = 'none';
+    if (uploadContent) uploadContent.style.display = 'block';
+    if (fileInfo) fileInfo.style.display = 'none';
+    if (fileInput) fileInput.value = '';
+    if (urlInput) urlInput.value = '';
+
     const firstTab = document.querySelector('#prodi-tabs .tab-link-prodi');
-    switchProdiTab(firstTab, 'ptab-info');
+    if (firstTab) switchProdiTab(firstTab, 'ptab-info');
+}
+
+// ==========================================
+// 3. EDIT & VIEW LOGIC (FIXED)
+// ==========================================
+function editProdiById(id) {
+    const data = prodiData.find(p => parseInt(p.id) === parseInt(id));
+    if (data) {
+        editProdi(data);
+    } else {
+        console.error("Data tidak ditemukan untuk ID:", id);
+        showToast('Error', 'Data program studi tidak ditemukan', 'error');
+    }
 }
 
 function editProdi(data) {
-    document.getElementById('form-action').value = 'edit';
-    document.getElementById('form-id').value = data.id;
-    document.getElementById('modal-title').textContent = 'Edit Program Studi';
-    
-    document.getElementById('kode_prodi').value = data.kode_prodi || '';
-    document.getElementById('jenjang').value = data.jenjang;
-    document.getElementById('nama_prodi').value = data.nama_prodi;
-    document.getElementById('gelar_lulusan').value = data.gelar_lulusan || '';
-    document.getElementById('sistem_kuliah').value = data.sistem_kuliah;
-    document.getElementById('akreditasi').value = data.akreditasi || '';
-    document.getElementById('sort_order').value = data.sort_order || 0;
-    document.getElementById('kuota').value = data.kuota || 100;
-    document.getElementById('jalur_count').value = data.jalur_count || 1;
-    document.getElementById('biaya_spp').value = data.biaya_spp || 0;
-    document.getElementById('biaya_pangkal').value = data.biaya_pangkal || 0;
-    document.getElementById('description_id').value = data.description_id || '';
-    document.getElementById('description_en').value = data.description_en || '';
-    document.getElementById('image_url').value = data.image_url || '';
-    document.getElementById('is_active').checked = data.is_active == 1;
-    
-    // Update currency displays
-    updateCurrencyDisplay(document.getElementById('biaya_spp'), 'spp-display');
-    updateCurrencyDisplay(document.getElementById('biaya_pangkal'), 'pangkal-display');
-    
-    previewProdiImage();
-    openModal('prodi-modal');
+    try {
+        document.getElementById('form-action').value = 'edit';
+        document.getElementById('form-id').value = data.id;
+        document.getElementById('modal-title').textContent = 'Edit Program Studi';
+        
+        document.getElementById('kode_prodi').value = data.kode_prodi || '';
+        document.getElementById('jenjang').value = data.jenjang || '';
+        document.getElementById('nama_prodi').value = data.nama_prodi || '';
+        document.getElementById('gelar_lulusan').value = data.gelar_lulusan || '';
+        document.getElementById('sistem_kuliah').value = data.sistem_kuliah || 'Reguler';
+        document.getElementById('akreditasi').value = data.akreditasi || '';
+        document.getElementById('sort_order').value = data.sort_order || 0;
+        document.getElementById('kuota').value = data.kuota || 100;
+        document.getElementById('jalur_count').value = data.jalur_count || 1;
+        document.getElementById('biaya_spp').value = data.biaya_spp || 0;
+        document.getElementById('biaya_pangkal').value = data.biaya_pangkal || 0;
+        document.getElementById('description_id').value = data.description_id || '';
+        document.getElementById('description_en').value = data.description_en || '';
+        document.getElementById('image_url').value = data.image_url || '';
+        document.getElementById('is_active').checked = (data.is_active == 1);
+        
+        updateCurrencyDisplay(document.getElementById('biaya_spp'), 'spp-display');
+        updateCurrencyDisplay(document.getElementById('biaya_pangkal'), 'pangkal-display');
+        
+        // FIX: Panggil fungsi preview yang sudah diperbaiki
+        previewProdiImage();
+        
+        const firstTab = document.querySelector('#prodi-tabs .tab-link-prodi');
+        if (firstTab) switchProdiTab(firstTab, 'ptab-info');
+        
+        const modal = document.getElementById('prodi-modal');
+        if (modal) {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        } else {
+            console.error("Elemen modal 'prodi-modal' tidak ditemukan!");
+        }
+    } catch (error) {
+        console.error("Error saat mengisi form edit:", error);
+        showToast('Error', 'Gagal membuka form edit. Cek Console (F12)', 'error');
+    }
 }
 
 function viewProdi(id) {
@@ -696,7 +796,7 @@ function viewProdi(id) {
     
     document.getElementById('view-content').innerHTML = `
         <div style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem; align-items: flex-start;">
-            <img src="${data.image_url || ''}" alt="" style="width: 120px; height: 120px; border-radius: 12px; object-fit: cover; flex-shrink: 0;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23e2e8f0%22%3E%3Crect width=%2224%22 height=%2224%22/%3E%3C/svg%3E'">
+        <img src="${data.image_url ? (data.image_url.startsWith('http') ? data.image_url : '../' + data.image_url) : ''}" alt="" style="width: 120px; height: 120px; border-radius: 12px; object-fit: cover; flex-shrink: 0;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23e2e8f0%22%3E%3Crect width=%2224%22 height=%2224%22/%3E%3C/svg%3E'">
             <div style="flex: 1; min-width: 0;">
                 <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
                     <span class="badge badge-info">${data.jenjang}</span>
@@ -706,7 +806,6 @@ function viewProdi(id) {
                 <div style="font-size: 0.85rem; color: var(--text-muted);">Kode: <code>${data.kode_prodi || '-'}</code> • Gelar: ${data.gelar_lulusan || '-'} • ${data.sistem_kuliah}</div>
             </div>
         </div>
-        
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
             <div style="background: var(--bg); padding: 1rem; border-radius: 10px;">
                 <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">Kuota</div>
@@ -722,7 +821,6 @@ function viewProdi(id) {
                 <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Pangkal: ${formatRp(data.biaya_pangkal)}</div>
             </div>
         </div>
-        
         <div style="background: var(--bg); padding: 1rem; border-radius: 10px; margin-bottom: 1rem;">
             <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;">Deskripsi</div>
             <div style="font-size: 0.9rem; line-height: 1.6;">${data.description_id || '<em style="color: var(--text-muted);">Belum ada deskripsi</em>'}</div>
@@ -730,106 +828,185 @@ function viewProdi(id) {
     `;
     
     document.getElementById('view-edit-btn').onclick = () => {
-        closeModal(document.getElementById('view-modal'));
+        const viewModal = document.getElementById('view-modal');
+        if (typeof closeModal === 'function') {
+            closeModal(viewModal);
+        } else {
+            viewModal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
         setTimeout(() => editProdi(data), 300);
     };
     
-    openModal('view-modal');
-}
-
-function deleteProdi(id, nama) {
-    if (confirmDelete(`Hapus program studi <strong>${nama}</strong>? Tindakan ini tidak dapat dibatalkan.`)) {
-        document.getElementById('delete-form-' + id).submit();
+    const viewModal = document.getElementById('view-modal');
+    if (viewModal) {
+        viewModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
     }
 }
 
-function previewProdiImage() {
-    const url = document.getElementById('image_url').value;
-    const preview = document.getElementById('image-preview');
-    const img = document.getElementById('preview-img');
-    if (url) { img.src = url; preview.style.display = 'block'; }
-    else { preview.style.display = 'none'; }
+function deleteProdi(id, nama) {
+    if (typeof confirmDelete === 'function') {
+        confirmDelete(`Hapus program studi <strong>${nama}</strong>? Tindakan ini tidak dapat dibatalkan.`, () => {
+            document.getElementById('delete-form-' + id).submit();
+        });
+    } else {
+        if (confirm(`Hapus program studi ${nama}?`)) {
+            document.getElementById('delete-form-' + id).submit();
+        }
+    }
 }
 
-// Character counter
+// ==========================================
+// 4. IMAGE & FILE HANDLING (FIXED)
+// ==========================================
+function previewProdiImage() {
+    const urlInput = document.getElementById('image_url');
+    if (!urlInput) return;
+    const url = urlInput.value;
+
+    // FIX: Menggunakan ID yang sesuai dengan HTML Anda
+    const previewContainer = document.getElementById('prodi-preview-local');
+    const uploadContent = document.getElementById('prodi-upload-content');
+    const previewImg = previewContainer ? previewContainer.querySelector('img') : null;
+
+    let src = url;
+    if (url && url.indexOf('http') !== 0) src = '../' + url; // Path lokal butuh awalan ../ dari folder admin
+
+    if (url && previewContainer && previewImg) {
+        previewImg.src = src;
+        previewContainer.style.display = 'flex';
+        if (uploadContent) uploadContent.style.display = 'none';
+    } else if (previewContainer) {
+        previewContainer.style.display = 'none';
+        if (uploadContent) uploadContent.style.display = 'block';
+    }
+}
+
+function switchMode(target, mode, btn) {
+    const uploadMode = document.getElementById(target + '-upload-mode');
+    const urlMode = document.getElementById(target + '-url-mode');
+    if (uploadMode) uploadMode.style.display = mode === 'upload' ? 'block' : 'none';
+    if (urlMode) urlMode.style.display = mode === 'url' ? 'block' : 'none';
+    
+    const container = btn.parentElement;
+    container.querySelectorAll('.mode-btn').forEach(b => { 
+        b.style.background = 'transparent'; 
+        b.style.color = 'var(--text-muted)'; 
+    });
+    btn.style.background = 'var(--primary)';
+    btn.style.color = 'white';
+}
+
+function handleFileSelect(input, previewId, infoId) {
+    const file = input.files[0]; 
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { 
+        showToast('Error', 'Ukuran file maksimal 5MB!', 'error'); 
+        input.value = ''; 
+        return; 
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const img = document.querySelector(`#${previewId} img`);
+        if (img) img.src = e.target.result;
+        
+        const previewEl = document.getElementById(previewId);
+        const contentEl = document.getElementById(previewId.replace('-local', '-content'));
+        if (previewEl) previewEl.style.display = 'flex';
+        if (contentEl) contentEl.style.display = 'none';
+        
+        const info = document.getElementById(infoId);
+        if (info) {
+            const nameEl = info.querySelector('.file-name');
+            const sizeEl = info.querySelector('.file-size');
+            if (nameEl) nameEl.textContent = file.name;
+            if (sizeEl) sizeEl.textContent = (file.size / 1024).toFixed(1) + ' KB';
+            info.style.display = 'block';
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+function handleDrop(event, inputId) {
+    event.preventDefault(); 
+    event.currentTarget.classList.remove('dragover');
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.files = files;
+            handleFileSelect(input, inputId.replace('_upload', '-preview-local'), inputId.replace('_upload', '-file-info'));
+        }
+    }
+}
+
+function removeFile(inputId, previewId, infoId) {
+    const input = document.getElementById(inputId);
+    const preview = document.getElementById(previewId);
+    const content = document.getElementById(previewId.replace('-local', '-content'));
+    const info = document.getElementById(infoId);
+    
+    if (input) input.value = '';
+    if (preview) preview.style.display = 'none';
+    if (content) content.style.display = 'block';
+    if (info) info.style.display = 'none';
+}
+
+// ==========================================
+// 5. UTILITIES (FIXED)
+// ==========================================
+// Character counter dengan null-checking agar tidak error
 document.querySelectorAll('[data-counter]').forEach(input => {
     const id = input.getAttribute('data-counter');
     const counter = document.getElementById('counter_' + id);
-    const max = parseInt(input.getAttribute('maxlength'));
+    const max = parseInt(input.getAttribute('maxlength')) || 500;
+    
     const update = () => {
-        const len = input.value.length;
-        counter.textContent = len;
-        counter.style.color = len > max * 0.9 ? 'var(--danger)' : len > max * 0.7 ? 'var(--warning)' : 'var(--text-muted)';
+        const val = (input.value !== undefined && input.value !== null) ? input.value : '';
+        const len = val.length;
+        if (counter) {
+            counter.textContent = len;
+            counter.style.color = len > max * 0.9 ? 'var(--danger)' : len > max * 0.7 ? 'var(--warning)' : 'var(--text-muted)';
+        }
     };
     update();
     input.addEventListener('input', update);
 });
 
-// Auto-generate kode prodi dari nama
-document.getElementById('nama_prodi').addEventListener('input', function() {
-    const kodeInput = document.getElementById('kode_prodi');
-    if (!kodeInput.dataset.manualEdit) {
-        const jenjang = document.getElementById('jenjang').value || '';
-        const nama = this.value.toUpperCase().replace(/[^A-Z0-9]/g, ' ').split(' ').filter(Boolean);
-        const abbrev = nama.map(w => w[0]).join('').substring(0, 4);
-        kodeInput.value = jenjang ? jenjang + '-' + abbrev : abbrev;
-    }
-});
-document.getElementById('kode_prodi').addEventListener('input', function() {
-    this.dataset.manualEdit = 'true';
-});
-
-// Mode switching for Prodi
-function switchMode(target, mode, btn) {
-    document.getElementById(target + '-upload-mode').style.display = mode === 'upload' ? 'block' : 'none';
-    document.getElementById(target + '-url-mode').style.display = mode === 'url' ? 'block' : 'none';
-    const container = btn.parentElement;
-    container.querySelectorAll('.mode-btn').forEach(b => { b.style.background = 'transparent'; b.style.color = 'var(--text-muted)'; });
-    btn.style.background = 'var(--primary)';
-    btn.style.color = 'white';
+// Auto-generate kode prodi dari nama (dengan null-checking)
+const namaInput = document.getElementById('nama_prodi');
+const kodeInput = document.getElementById('kode_prodi');
+if (namaInput && kodeInput) {
+    namaInput.addEventListener('input', function() {
+        if (!kodeInput.dataset.manualEdit) {
+            const jenjangEl = document.getElementById('jenjang');
+            const jenjang = jenjangEl ? jenjangEl.value : '';
+            const nama = this.value.toUpperCase().replace(/[^A-Z0-9]/g, ' ').split(' ').filter(Boolean);
+            const abbrev = nama.map(w => w[0]).join('').substring(0, 4);
+            kodeInput.value = jenjang ? jenjang + '-' + abbrev : abbrev;
+        }
+    });
+    kodeInput.addEventListener('input', function() {
+        this.dataset.manualEdit = 'true';
+    });
 }
 
-// Reuse file handlers from settings (paste these if not already in prodi.php)
-function handleFileSelect(input, previewId, infoId) {
-    const file = input.files[0]; if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert('Maksimal 5MB!'); input.value = ''; return; }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        document.querySelector(`#${previewId} img`).src = e.target.result;
-        document.getElementById(previewId).style.display = 'flex';
-        document.getElementById(previewId.replace('-local', '-content')).style.display = 'none';
-        const info = document.getElementById(infoId);
-        info.querySelector('.file-name').textContent = file.name;
-        info.querySelector('.file-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
-        info.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
-}
-function handleDrop(event, inputId) {
-    event.preventDefault(); event.currentTarget.classList.remove('dragover');
-    const files = event.dataTransfer.files;
-    if (files.length > 0) {
-        const input = document.getElementById(inputId);
-        input.files = files;
-        handleFileSelect(input, inputId.replace('_upload', '-preview-local'), inputId.replace('_upload', '-file-info'));
-    }
-}
-function removeFile(inputId, previewId, infoId) {
-    document.getElementById(inputId).value = '';
-    document.getElementById(previewId).style.display = 'none';
-    document.getElementById(previewId.replace('-local', '-content')).style.display = 'block';
-    document.getElementById(infoId).style.display = 'none';
-}
-
+// ==========================================
+// 6. INITIALIZATION
+// ==========================================
 <?php if (isset($_SESSION['toast'])): ?>
 document.addEventListener('DOMContentLoaded', () => {
-    showToast('<?= $_SESSION['toast']['title'] ?>', '<?= addslashes($_SESSION['toast']['message']) ?>', '<?= $_SESSION['toast']['type'] ?>');
+    if (typeof showToast === 'function') {
+        showToast('<?= $_SESSION['toast']['title'] ?>', '<?= addslashes($_SESSION['toast']['message']) ?>', '<?= $_SESSION['toast']['type'] ?>');
+    }
 });
 <?php unset($_SESSION['toast']); endif; ?>
 
 <?php if ($edit_prodi): ?>
 document.addEventListener('DOMContentLoaded', () => {
-    editProdi(<?= json_encode($edit_prodi) ?>);
+    // Gunakan editProdiById agar lebih aman daripada langsung melempar object
+    editProdiById(<?= (int)$edit_prodi['id'] ?>);
 });
 <?php endif; ?>
 </script>
