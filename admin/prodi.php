@@ -394,7 +394,7 @@ if (isset($_GET['edit'])) {
 <!-- Add/Edit Modal (Bertab) -->
 <div class="modal-overlay" id="prodi-modal">
     <div class="modal" style="max-width: 800px;">
-        <form method="POST" id="prodi-form" data-validate enctype="multipart/form-data">
+        <form method="POST" id="prodi-form" data-validate enctype="multipart/form-data" novalidate>
             <input type="hidden" name="csrf_token" value="<?= generate_csrf_token() ?>">
             <input type="hidden" name="action" id="form-action" value="add">
             <input type="hidden" name="id" id="form-id" value="">

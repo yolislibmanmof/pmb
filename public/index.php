@@ -14,10 +14,6 @@ $featured_prodi = $stmt_featured->fetchAll();
 $stmt_all = $pdo->query("SELECT * FROM prodi WHERE is_active = 1 ORDER BY FIELD(jenjang, 'S2', 'S1', 'Prof', 'D3'), nama_prodi ASC");
 $all_prodi = $stmt_all->fetchAll();
 
-// ==========================================
-// 🔥 DATA DINAMIS DARI ADMIN (BATCH 4)
-// ==========================================
-
 // 1. Ambil 3 Berita Terbaru (Hanya yang Published)
 $stmt_news = $pdo->query("SELECT slug, title_id, title_en, thumbnail_url, category, published_at, created_at, content_id, content_en 
     FROM news 
@@ -43,7 +39,7 @@ function getExcerpt($text, $length = 120) {
 ?>
 
 <!-- ==========================================
-     1. HERO SECTION (High Impact & Professional)
+     1. HERO SECTION
      ========================================== -->
 <header class="hero">
     <div class="hero-content">
@@ -87,7 +83,8 @@ function getExcerpt($text, $length = 120) {
     </div>
     
     <div class="hero-image">
-        <img src="<?= sanitize($hero_image) ?>" alt="Kampus UKJP" loading="eager">
+        <!-- PERBAIKAN: Menggunakan get_public_image -->
+        <img src="<?= get_public_image($hero_image) ?>" alt="Kampus UKJP" loading="eager">
         <div class="hero-image-float-card">
             <div class="float-icon" style="font-size: 2.5rem; line-height: 1;">
                 <svg style="width: 40px; height: 40px; color: var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -156,7 +153,8 @@ function getExcerpt($text, $length = 120) {
         <div class="prodi-card" data-jenjang="<?= $p['jenjang'] ?>" data-sistem="<?= $p['sistem_kuliah'] ?>">
             <div class="prodi-card-img">
                 <span class="prodi-badge"><?= sanitize($p['jenjang']) ?></span>
-                <img src="<?= sanitize($p['image_url']) ?>" alt="<?= sanitize($p['nama_prodi']) ?>" loading="lazy">
+                <!-- PERBAIKAN: Menggunakan get_public_image -->
+                <img src="<?= get_public_image($p['image_url']) ?>" alt="<?= sanitize($p['nama_prodi']) ?>" loading="lazy">
             </div>
             <div class="prodi-body">
                 <h3><?= sanitize($p['nama_prodi']) ?></h3>
@@ -185,7 +183,7 @@ function getExcerpt($text, $length = 120) {
 </section>
 
 <!-- ==========================================
-     4. LATEST NEWS (🔥 BARU: Sinkron dengan Admin Berita)
+     4. LATEST NEWS
      ========================================== -->
 <section class="section" style="background: var(--bg); border-radius: 32px; margin: 4rem auto;">
     <div class="section-header">
@@ -205,7 +203,8 @@ function getExcerpt($text, $length = 120) {
                 <a href="detail-berita.php?slug=<?= urlencode($n['slug']) ?>" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; height: 100%;">
                     <div style="position: relative; height: 200px; overflow: hidden;">
                         <span style="position: absolute; top: 1rem; left: 1rem; z-index: 2; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); color: var(--primary); padding: 0.3rem 0.8rem; border-radius: 50px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid rgba(255,255,255,0.5);"><?= sanitize($n['category'] ?? 'Umum') ?></span>
-                        <img src="<?= sanitize($n['thumbnail_url']) ?>" alt="<?= sanitize($title) ?>" loading="lazy" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect fill=%22%23e2e8f0%22 width=%22400%22 height=%22300%22/%3E%3C/svg%3E'">
+                        <!-- PERBAIKAN: Menggunakan get_public_image -->
+                        <img src="<?= get_public_image($n['thumbnail_url']) ?>" alt="<?= sanitize($title) ?>" loading="lazy" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect fill=%22%23e2e8f0%22 width=%22400%22 height=%22300%22/%3E%3C/svg%3E'">
                     </div>
                     <div class="prodi-body" style="flex-grow: 1; display: flex; flex-direction: column;">
                         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
@@ -239,7 +238,7 @@ function getExcerpt($text, $length = 120) {
 </section>
 
 <!-- ==========================================
-     5. TESTIMONIALS (🔥 BARU: Sinkron dengan Admin Testimoni)
+     5. TESTIMONIALS
      ========================================== -->
 <section class="section">
     <div class="section-header">
@@ -254,7 +253,6 @@ function getExcerpt($text, $length = 120) {
                 $stars = str_repeat('★', (int)$t['rating']) . str_repeat('☆', 5 - (int)$t['rating']);
             ?>
             <div class="prodi-card" style="padding: 2rem; display: flex; flex-direction: column; position: relative;">
-                <!-- Quote Icon -->
                 <svg style="position: absolute; top: 1.5rem; right: 1.5rem; width: 32px; height: 32px; color: var(--primary); opacity: 0.15;" viewBox="0 0 24 24" fill="currentColor"><path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/></svg>
                 
                 <div style="color: var(--accent); font-size: 1.1rem; margin-bottom: 1rem; letter-spacing: 2px;"><?= $stars ?></div>
@@ -263,7 +261,8 @@ function getExcerpt($text, $length = 120) {
                 
                 <div style="display: flex; align-items: center; gap: 1rem; margin-top: auto; padding-top: 1.25rem; border-top: 1px solid var(--border);">
                     <?php if (!empty($t['photo_url'])): ?>
-                        <img src="<?= sanitize($t['photo_url']) ?>" alt="<?= sanitize($t['name']) ?>" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary);" onerror="this.style.display='none'">
+                        <!-- PERBAIKAN: Menggunakan get_public_image -->
+                        <img src="<?= get_public_image($t['photo_url']) ?>" alt="<?= sanitize($t['name']) ?>" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary);" onerror="this.style.display='none'">
                     <?php else: ?>
                         <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.1rem; flex-shrink: 0;">
                             <?= strtoupper(substr($t['name'], 0, 1)) ?>
@@ -288,7 +287,7 @@ function getExcerpt($text, $length = 120) {
 </section>
 
 <!-- ==========================================
-     6. WHY CHOOSE US (Keunggulan Kampus - Pure SVG)
+     6. WHY CHOOSE US
      ========================================== -->
 <section class="section" style="background: var(--surface); border-radius: 32px; border: 1px solid var(--border); margin: 4rem auto;">
     <div class="section-header">
@@ -346,9 +345,6 @@ function getExcerpt($text, $length = 120) {
 
 <?php require_once 'includes/footer.php'; ?>
 
-<!-- ==========================================
-     8. PAGE-SPECIFIC JAVASCRIPT
-     ========================================== -->
 <script>
     function filterProdi() {
         const jenjang = document.getElementById('filter-jenjang').value;

@@ -144,7 +144,7 @@ function formatRupiah($num) {
                             Hot
                         </span>
                         <?php endif; ?>
-                        <img src="<?= sanitize($p['image_url']) ?>" alt="<?= sanitize($p['nama_prodi']) ?>" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect fill=%22%23e2e8f0%22 width=%22400%22 height=%22300%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%2364748b%22 font-family=%22sans-serif%22 font-size=%2220%22%3E<?= urlencode($p['nama_prodi']) ?>%3C/text%3E%3C/svg%3E'">
+                        <img src="<?= get_public_image($p['image_url']) ?>" alt="<?= sanitize($p['nama_prodi']) ?>" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect fill=%22%23e2e8f0%22 width=%22400%22 height=%22300%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%2364748b%22 font-family=%22sans-serif%22 font-size=%2220%22%3E<?= urlencode($p['nama_prodi']) ?>%3C/text%3E%3C/svg%3E'">
                     </div>
                     <div class="prodi-body">
                         <!-- Akreditasi & Jenjang -->
@@ -431,7 +431,13 @@ function formatRupiah($num) {
     }
     
     function viewProdiDetail(data) {
-        document.getElementById('detail-image').src = data.image_url || '';
+        // PERBAIKAN: Menambahkan '../' jika URL gambar adalah path lokal
+        let imgUrl = data.image_url || '';
+        if (imgUrl && !imgUrl.startsWith('http')) {
+            imgUrl = '../' + imgUrl;
+        }
+        document.getElementById('detail-image').src = imgUrl;
+        
         document.getElementById('detail-jenjang').textContent = data.jenjang;
         document.getElementById('detail-akreditasi').textContent = data.akreditasi || '-';
         document.getElementById('detail-nama').textContent = data.nama_prodi;
