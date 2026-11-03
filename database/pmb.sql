@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Nov 03, 2026 at 04:13 PM
+-- Generation Time: Nov 03, 2026 at 11:37 PM
 -- Server version: 5.7.39
 -- PHP Version: 8.2.28
 
@@ -71,7 +71,8 @@ INSERT INTO `admin_logs` (`id`, `user_id`, `action`, `table_name`, `record_id`, 
 (23, 1, 'UPDATE', 'prodi', 2, 'Mengupdate prodi ID: 2', NULL, NULL, '::1', NULL, '2026-11-03 15:58:28'),
 (24, 1, 'UPDATE', 'prodi', 12, 'Mengupdate prodi ID: 12', NULL, NULL, '::1', NULL, '2026-11-03 16:00:47'),
 (25, 1, 'UPDATE', 'settings', NULL, 'Memperbarui pengaturan situs', NULL, NULL, '::1', NULL, '2026-11-03 16:02:09'),
-(26, 1, 'UPDATE', 'settings', NULL, 'Memperbarui pengaturan situs', NULL, NULL, '::1', NULL, '2026-11-03 16:02:27');
+(26, 1, 'UPDATE', 'settings', NULL, 'Memperbarui pengaturan situs', NULL, NULL, '::1', NULL, '2026-11-03 16:02:27'),
+(27, 1, 'UPDATE', 'settings', NULL, 'Memperbarui pengaturan situs', NULL, NULL, '::1', NULL, '2026-11-03 16:28:00');
 
 -- --------------------------------------------------------
 
@@ -163,6 +164,29 @@ CREATE TABLE `email_templates` (
 INSERT INTO `email_templates` (`id`, `template_key`, `subject_id`, `subject_en`, `body_id`, `body_en`, `is_active`, `updated_at`) VALUES
 (1, 'registration_success', 'Pendaftaran Berhasil - PMB UKJP', 'Registration Successful - UKJP Admission', 'Halo {nama},\n\nPendaftaran Anda telah kami terima.\n\nKode Pendaftaran: {kode}\nProgram Studi: {prodi}\n\nSilakan lakukan pembayaran untuk melanjutkan proses.\n\nTerima kasih,\nPanitia PMB UKJP', 'Hello {nama},\n\nYour registration has been received.\n\nRegistration Code: {kode}\nStudy Program: {prodi}\n\nPlease make payment to continue the process.\n\nThank you,\nUKJP Admission Committee', 1, '2026-11-03 01:49:53'),
 (2, 'verification_approved', 'Selamat! Anda Diterima - PMB UKJP', 'Congratulations! You Are Accepted - UKJP Admission', 'Halo {nama},\n\nSelamat! Anda telah DITERIMA di program studi {prodi}.\n\nSilakan lakukan registrasi ulang sebelum {deadline}.\n\nTerima kasih,\nPanitia PMB UKJP', 'Hello {nama},\n\nCongratulations! You have been ACCEPTED in the {prodi} study program.\n\nPlease complete re-registration before {deadline}.\n\nThank you,\nUKJP Admission Committee', 1, '2026-11-03 01:49:53');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `exam_schedules`
+--
+
+CREATE TABLE `exam_schedules` (
+  `id` int(11) NOT NULL,
+  `applicant_id` int(11) NOT NULL,
+  `gelombang_id` int(11) DEFAULT NULL,
+  `nomor_peserta` varchar(50) NOT NULL,
+  `tanggal_ujian` date NOT NULL,
+  `waktu_ujian` time NOT NULL,
+  `ruang_ujian` varchar(50) NOT NULL,
+  `lokasi_ujian` varchar(100) DEFAULT NULL,
+  `jenis_ujian` enum('Tes Tulis','Wawancara','Tes Kesehatan','Psikotes') DEFAULT 'Tes Tulis',
+  `keterangan` text,
+  `is_printed` tinyint(1) DEFAULT '0',
+  `printed_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -393,13 +417,13 @@ INSERT INTO `settings` (`id`, `setting_key`, `value_id`, `value_en`, `setting_gr
 (3, 'logo_url', '../uploads/settings/1793721747_69d10081.png', '../uploads/settings/1793721747_69d10081.png', 'branding', 1, '2026-11-03 16:02:27'),
 (4, 'favicon_url', '../uploads/settings/1793721747_c92681ef.png', '../uploads/settings/1793721747_c92681ef.png', 'branding', 1, '2026-11-03 16:02:27'),
 (5, 'hero_title', 'Wujudkan Masa Depanmu Bersama Kami', 'Shape Your Future With Us', 'hero', 1, '2026-11-03 01:49:53'),
-(6, 'hero_subtitle', 'NaN', 'NaN', 'hero', 1, '2026-11-03 10:23:36'),
+(6, 'hero_subtitle', 'NaN', 'NaN', 'hero', 1, '2026-11-03 16:28:00'),
 (7, 'hero_image', '../uploads/settings/1793701416_29e4ae53.png', '../uploads/settings/1793701416_29e4ae53.png', 'hero', 1, '2026-11-03 10:23:36'),
 (8, 'contact_phone', '+62 851-7427-0172', '+62 851-7427-0172', 'contact', 1, '2026-11-03 01:49:53'),
 (9, 'contact_email', 'info@ukjp.ac.id', 'info@ukjp.ac.id', 'contact', 1, '2026-11-03 01:49:53'),
-(10, 'contact_address', 'NaN', 'NaN', 'contact', 1, '2026-11-03 10:23:36'),
+(10, 'contact_address', 'NaN', 'NaN', 'contact', 1, '2026-11-03 16:28:00'),
 (11, 'contact_wa', '6285174270172', '6285174270172', 'contact', 1, '2026-11-03 01:49:53'),
-(12, 'meta_description', 'NaN', 'NaN', 'seo', 1, '2026-11-03 10:23:36'),
+(12, 'meta_description', 'NaN', 'NaN', 'seo', 1, '2026-11-03 16:28:00'),
 (13, 'registration_fee', '200000', '200000', 'payment', 1, '2026-11-03 01:49:53'),
 (14, 'bank_account_name', 'Universitas Kurnia Jaya Persada', 'Universitas Kurnia Jaya Persada', 'payment', 1, '2026-11-03 01:49:53'),
 (15, 'bank_account_number', '1234567890', '1234567890', 'payment', 1, '2026-11-03 01:49:53'),
@@ -535,6 +559,15 @@ ALTER TABLE `email_templates`
   ADD UNIQUE KEY `template_key` (`template_key`);
 
 --
+-- Indexes for table `exam_schedules`
+--
+ALTER TABLE `exam_schedules`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `nomor_peserta` (`nomor_peserta`),
+  ADD KEY `applicant_id` (`applicant_id`),
+  ADD KEY `gelombang_id` (`gelombang_id`);
+
+--
 -- Indexes for table `faq`
 --
 ALTER TABLE `faq`
@@ -630,7 +663,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `admin_logs`
 --
 ALTER TABLE `admin_logs`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
 --
 -- AUTO_INCREMENT for table `applicants`
@@ -649,6 +682,12 @@ ALTER TABLE `applicant_documents`
 --
 ALTER TABLE `email_templates`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT for table `exam_schedules`
+--
+ALTER TABLE `exam_schedules`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `faq`
@@ -696,7 +735,7 @@ ALTER TABLE `prodi`
 -- AUTO_INCREMENT for table `settings`
 --
 ALTER TABLE `settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=93;
 
 --
 -- AUTO_INCREMENT for table `testimonials`
@@ -753,6 +792,13 @@ ALTER TABLE `applicants`
 --
 ALTER TABLE `applicant_documents`
   ADD CONSTRAINT `fk_doc_applicant` FOREIGN KEY (`applicant_id`) REFERENCES `applicants` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `exam_schedules`
+--
+ALTER TABLE `exam_schedules`
+  ADD CONSTRAINT `fk_exam_applicant` FOREIGN KEY (`applicant_id`) REFERENCES `applicants` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_exam_gelombang` FOREIGN KEY (`gelombang_id`) REFERENCES `gelombang` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `news`
