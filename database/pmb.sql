@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Nov 03, 2026 at 11:14 AM
+-- Generation Time: Nov 03, 2026 at 04:13 PM
 -- Server version: 5.7.39
 -- PHP Version: 8.2.28
 
@@ -59,7 +59,19 @@ INSERT INTO `admin_logs` (`id`, `user_id`, `action`, `table_name`, `record_id`, 
 (11, 1, 'UPDATE', 'prodi', 12, 'Mengupdate prodi ID: 12', NULL, NULL, '::1', NULL, '2026-11-03 09:55:25'),
 (12, 1, 'UPDATE', 'prodi', 12, 'Mengupdate prodi ID: 12', NULL, NULL, '::1', NULL, '2026-11-03 10:12:15'),
 (13, 1, 'UPDATE', 'settings', NULL, 'Memperbarui pengaturan situs', NULL, NULL, '::1', NULL, '2026-11-03 10:23:36'),
-(14, NULL, 'LOGIN_SUCCESS', 'users', NULL, 'Login berhasil', NULL, NULL, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36', '2026-11-03 10:28:02');
+(14, NULL, 'LOGIN_SUCCESS', 'users', NULL, 'Login berhasil', NULL, NULL, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36', '2026-11-03 10:28:02'),
+(15, NULL, 'LOGIN_SUCCESS', 'users', NULL, 'Login berhasil', NULL, NULL, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36', '2026-11-03 11:28:10'),
+(16, 1, 'UPDATE', 'menus', 5, 'Mengupdate menu ID: 5', NULL, NULL, '::1', NULL, '2026-11-03 11:30:02'),
+(17, 1, 'UPDATE', 'menus', 3, 'Mengupdate menu ID: 3', NULL, NULL, '::1', NULL, '2026-11-03 11:30:38'),
+(18, 1, 'UPDATE', 'prodi', 2, 'Mengupdate prodi ID: 2', NULL, NULL, '::1', NULL, '2026-11-03 15:19:52'),
+(19, 1, 'UPDATE', 'menus', 9, 'Mengupdate menu ID: 9', NULL, NULL, '::1', NULL, '2026-11-03 15:20:42'),
+(20, 1, 'UPDATE', 'menus', 2, 'Mengupdate menu ID: 2', NULL, NULL, '::1', NULL, '2026-11-03 15:21:10'),
+(21, 1, 'UPDATE', 'jalur_pendaftaran', 1, 'Mengupdate jalur ID: 1', NULL, NULL, '::1', NULL, '2026-11-03 15:52:48'),
+(22, 1, 'UPDATE', 'prodi', 2, 'Mengupdate prodi ID: 2', NULL, NULL, '::1', NULL, '2026-11-03 15:58:12'),
+(23, 1, 'UPDATE', 'prodi', 2, 'Mengupdate prodi ID: 2', NULL, NULL, '::1', NULL, '2026-11-03 15:58:28'),
+(24, 1, 'UPDATE', 'prodi', 12, 'Mengupdate prodi ID: 12', NULL, NULL, '::1', NULL, '2026-11-03 16:00:47'),
+(25, 1, 'UPDATE', 'settings', NULL, 'Memperbarui pengaturan situs', NULL, NULL, '::1', NULL, '2026-11-03 16:02:09'),
+(26, 1, 'UPDATE', 'settings', NULL, 'Memperbarui pengaturan situs', NULL, NULL, '::1', NULL, '2026-11-03 16:02:27');
 
 -- --------------------------------------------------------
 
@@ -250,11 +262,15 @@ CREATE TABLE `menus` (
 --
 
 INSERT INTO `menus` (`id`, `parent_id`, `label_id`, `label_en`, `url`, `icon`, `target`, `menu_position`, `sort_order`, `is_active`, `created_at`) VALUES
-(1, 0, 'Beranda', 'Home', 'index.php', NULL, '_self', 'header', 1, 1, '2026-11-03 01:49:53'),
-(2, 0, 'Program Studi', 'Programs', 'prodi.php', NULL, '_self', 'header', 2, 1, '2026-11-03 01:49:53'),
-(3, 0, 'Alur Pendaftaran', 'Registration Flow', 'alur.php', NULL, '_self', 'header', 3, 1, '2026-11-03 01:49:53'),
-(4, 0, 'Kontak', 'Contact', 'kontak.php', NULL, '_self', 'header', 4, 1, '2026-11-03 01:49:53'),
-(5, 0, 'Daftar Sekarang', 'Register Now', 'register.php', NULL, '_self', 'header', 5, 1, '2026-11-03 01:49:53');
+(1, 0, 'Beranda', 'Home', 'index.php', 'home', '_self', 'header', 1, 1, '2026-11-03 01:49:53'),
+(2, 0, 'Prodi', 'Programs', 'prodi.php', 'book', '_self', 'header', 2, 1, '2026-11-03 01:49:53'),
+(3, 0, 'Alur', 'Registration Flow', 'alur.php', 'guide', '_self', 'header', 3, 1, '2026-11-03 01:49:53'),
+(4, 0, 'Kontak', 'Contact', 'kontak.php', 'phone', '_self', 'header', 4, 1, '2026-11-03 01:49:53'),
+(5, 0, 'Daftar', 'Register Now', 'register.php', 'user', '_self', 'header', 5, 1, '2026-11-03 01:49:53'),
+(6, 0, 'Informasi', 'Information', '#', 'help', '_self', 'header', 6, 1, '2026-11-03 11:17:59'),
+(7, 6, 'Berita', 'News', 'berita.php', 'news', '_self', 'header', 1, 1, '2026-11-03 11:17:59'),
+(8, 6, 'FAQ', 'FAQ', 'faq.php', 'help', '_self', 'header', 2, 1, '2026-11-03 11:17:59'),
+(9, 0, 'Status', 'Status', 'cek-status.php', 'search', '_self', 'header', 7, 1, '2026-11-03 11:22:07');
 
 -- --------------------------------------------------------
 
@@ -344,7 +360,7 @@ CREATE TABLE `prodi` (
 --
 
 INSERT INTO `prodi` (`id`, `kode_prodi`, `jenjang`, `nama_prodi`, `sistem_kuliah`, `akreditasi`, `gelar_lulusan`, `kuota`, `biaya_spp`, `biaya_pangkal`, `jalur_count`, `description_id`, `description_en`, `image_url`, `is_active`, `sort_order`, `created_at`, `updated_at`) VALUES
-(2, 'S1-BD', 'S1', 'Bisnis Digital', 'Reguler', 'A', 'S.Kom.', 60, 4000000.00, 6000000.00, 2, 'Mencetak wirausaha digital yang kompeten, inovatif, dan siap menghadapi era industri 4.0.', 'Creating competent, innovative digital entrepreneurs ready for the industry 4.0 era.', 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80', 1, 2, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
+(2, 'S1-BD', 'S1', 'Bisnis Digital', 'Reguler', 'A', 'S.Kom.', 60, 4000000.00, 6000000.00, 2, 'Mencetak wirausaha digital yang kompeten, inovatif, dan siap menghadapi era industri 4.0.', 'Creating competent, innovative digital entrepreneurs ready for the industry 4.0 era.', 'uploads/prodi/1793719192_d0703472.png', 1, 2, '2026-11-03 01:49:53', '2026-11-03 15:19:52'),
 (3, 'S1-IK', 'S1', 'Ilmu Keperawatan', 'Reguler', 'A', 'S.Kep.', 100, 4500000.00, 7000000.00, 2, 'Menghasilkan perawat profesional, berempati, dan berdaya saing global dengan standar pelayanan prima.', 'Producing professional, empathetic, and globally competitive nurses with premium service standards.', 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80', 1, 3, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
 (4, 'S1-KB', 'S1', 'Kebidanan', 'Reguler', 'B', 'S.Tr.Keb.', 80, 4000000.00, 6000000.00, 2, 'Mencetak bidan profesional yang unggul dalam pelayanan kesehatan ibu dan anak.', 'Creating professional midwives who excel in maternal and child health services.', 'https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&w=800&q=80', 1, 4, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
 (5, 'S1-KD', 'S1', 'Kedokteran', 'Reguler', 'A', 'S.Ked.', 50, 15000000.00, 25000000.00, 2, 'Program studi unggulan untuk mencetak dokter umum yang kompeten dan beretika.', 'Leading study program to produce competent and ethical general practitioners.', 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=800&q=80', 1, 5, '2026-11-03 01:49:53', '2026-11-03 01:49:53'),
@@ -374,8 +390,8 @@ CREATE TABLE `settings` (
 INSERT INTO `settings` (`id`, `setting_key`, `value_id`, `value_en`, `setting_group`, `is_public`, `updated_at`) VALUES
 (1, 'site_name', 'PMB Universitas Kurnia Jaya Persada', 'Admission of Kurnia Jaya Persada University', 'branding', 1, '2026-11-03 01:49:53'),
 (2, 'tagline', 'Mencetak Generasi Unggul dan Berdaya Saing', 'Creating Superior and Competitive Generation', 'branding', 1, '2026-11-03 01:49:53'),
-(3, 'logo_url', 'https://via.placeholder.com/150x50/1e40af/ffffff?text=LOGO+UKJP', 'https://via.placeholder.com/150x50/1e40af/ffffff?text=LOGO+UKJP', 'branding', 1, '2026-11-03 01:49:53'),
-(4, 'favicon_url', 'https://via.placeholder.com/32/1e40af/ffffff?text=U', 'https://via.placeholder.com/32/1e40af/ffffff?text=U', 'branding', 1, '2026-11-03 01:49:53'),
+(3, 'logo_url', '../uploads/settings/1793721747_69d10081.png', '../uploads/settings/1793721747_69d10081.png', 'branding', 1, '2026-11-03 16:02:27'),
+(4, 'favicon_url', '../uploads/settings/1793721747_c92681ef.png', '../uploads/settings/1793721747_c92681ef.png', 'branding', 1, '2026-11-03 16:02:27'),
 (5, 'hero_title', 'Wujudkan Masa Depanmu Bersama Kami', 'Shape Your Future With Us', 'hero', 1, '2026-11-03 01:49:53'),
 (6, 'hero_subtitle', 'NaN', 'NaN', 'hero', 1, '2026-11-03 10:23:36'),
 (7, 'hero_image', '../uploads/settings/1793701416_29e4ae53.png', '../uploads/settings/1793701416_29e4ae53.png', 'hero', 1, '2026-11-03 10:23:36'),
@@ -614,7 +630,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `admin_logs`
 --
 ALTER TABLE `admin_logs`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT for table `applicants`
@@ -656,7 +672,7 @@ ALTER TABLE `jalur_pendaftaran`
 -- AUTO_INCREMENT for table `menus`
 --
 ALTER TABLE `menus`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `news`
@@ -680,7 +696,7 @@ ALTER TABLE `prodi`
 -- AUTO_INCREMENT for table `settings`
 --
 ALTER TABLE `settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75;
 
 --
 -- AUTO_INCREMENT for table `testimonials`

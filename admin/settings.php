@@ -201,8 +201,8 @@ function isLocalFile($url) {
     </div>
 </div>
 
-<!-- Settings Form -->
-<form method="POST" id="settings-form" enctype="multipart/form-data">
+   <!-- Settings Form -->
+   <form method="POST" id="settings-form" enctype="multipart/form-data" novalidate>
     <input type="hidden" name="csrf_token" value="<?= generate_csrf_token() ?>">
     
     <div style="display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 2px solid var(--border); overflow-x: auto; padding-bottom: 0;" class="tab-nav">
