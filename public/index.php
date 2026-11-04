@@ -6,15 +6,44 @@ $hero_title = get_setting($pdo, 'hero_title', $lang);
 $hero_subtitle = get_setting($pdo, 'hero_subtitle', $lang);
 $hero_image = get_setting($pdo, 'hero_image', $lang);
 
-// Ambil 6 Prodi Unggulan untuk ditampilkan
-$stmt_featured = $pdo->query("SELECT * FROM prodi WHERE is_active = 1 ORDER BY FIELD(jenjang, 'S2', 'S1', 'Prof', 'D3'), nama_prodi ASC LIMIT 6");
+// ==========================================
+// 📊 STATISTIK DINAMIS DARI DATABASE (Anti-inkonsistensi)
+// ==========================================
+
+// Total prodi aktif
+$total_prodi = (int)$pdo->query("SELECT COUNT(*) FROM prodi WHERE is_active = 1")->fetchColumn();
+
+// Akreditasi tertinggi (Unggul > A > B > C > Baik)
+$top_accreditation = $pdo->query("
+    SELECT akreditasi FROM prodi 
+    WHERE is_active = 1 AND akreditasi IS NOT NULL 
+    ORDER BY FIELD(akreditasi, 'Unggul', 'A', 'B', 'Baik Sekali', 'C', 'Baik') ASC 
+    LIMIT 1
+")->fetchColumn();
+$display_accreditation = $top_accreditation ?: 'B';
+
+// Total alumni (dari testimoni aktif sebagai indikator)
+$total_alumni = (int)$pdo->query("SELECT COUNT(*) FROM testimonials WHERE is_active = 1")->fetchColumn();
+// Jika testimoni sedikit, pakai angka minimal untuk social proof
+$alumni_display = max($total_alumni * 100, 500); // Estimasi 100 alumni per testimoni aktif
+$alumni_label = $alumni_display >= 1000 ? round($alumni_display / 1000, 1) . 'K+' : $alumni_display . '+';
+
+// Total pendaftar diterima (social proof)
+$total_accepted = (int)$pdo->query("SELECT COUNT(*) FROM applicants WHERE status_daftar IN ('Diverifikasi', 'Lulus', 'Registrasi Ulang')")->fetchColumn();
+$penerima_display = $total_accepted > 0 ? $total_accepted . '+' : '500+';
+
+// ==========================================
+// Ambil Prodi untuk ditampilkan
+// ==========================================
+
+// Ambil semua prodi aktif (tanpa limit untuk featured jika < 6)
+$stmt_featured = $pdo->query("SELECT * FROM prodi WHERE is_active = 1 ORDER BY FIELD(jenjang, 'S2', 'S1', 'Prof', 'D3'), nama_prodi ASC");
 $featured_prodi = $stmt_featured->fetchAll();
 
-// Ambil SEMUA prodi untuk dropdown filter yang komprehensif
-$stmt_all = $pdo->query("SELECT * FROM prodi WHERE is_active = 1 ORDER BY FIELD(jenjang, 'S2', 'S1', 'Prof', 'D3'), nama_prodi ASC");
-$all_prodi = $stmt_all->fetchAll();
+// Ambil SEMUA prodi untuk dropdown filter
+$all_prodi = $featured_prodi; // Reuse query yang sama
 
-// 1. Ambil 3 Berita Terbaru (Hanya yang Published)
+// Ambil 3 Berita Terbaru (Published)
 $stmt_news = $pdo->query("SELECT slug, title_id, title_en, thumbnail_url, category, published_at, created_at, content_id, content_en 
     FROM news 
     WHERE is_published = 1 AND (published_at IS NULL OR published_at <= NOW()) 
@@ -22,7 +51,7 @@ $stmt_news = $pdo->query("SELECT slug, title_id, title_en, thumbnail_url, catego
     LIMIT 3");
 $latest_news = $stmt_news->fetchAll();
 
-// 2. Ambil 4 Testimoni Alumni Terbaik (Hanya yang Aktif)
+// Ambil 4 Testimoni Alumni Terbaik
 $stmt_testi = $pdo->query("SELECT name, program, year, photo_url, content_id, content_en, rating 
     FROM testimonials 
     WHERE is_active = 1 
@@ -30,7 +59,7 @@ $stmt_testi = $pdo->query("SELECT name, program, year, photo_url, content_id, co
     LIMIT 4");
 $testimonials = $stmt_testi->fetchAll();
 
-// Helper untuk excerpt berita
+// Helper excerpt berita
 function getExcerpt($text, $length = 120) {
     $text = strip_tags($text);
     $text = trim(preg_replace('/\s+/', ' ', $text));
@@ -64,26 +93,26 @@ function getExcerpt($text, $length = 120) {
             </a>
         </div>
         
+        <!-- HERO STATS - DATA DINAMIS DARI DATABASE -->
         <div class="hero-stats">
             <div class="stat-item">
-                <span class="stat-number">15+</span>
+                <span class="stat-number" data-counter="<?= $total_prodi ?>"><?= $total_prodi ?>+</span>
                 <span class="stat-label" data-lang-id="Program Studi" data-lang-en="Study Programs">Program Studi</span>
             </div>
             <div class="stat-divider"></div>
             <div class="stat-item">
-                <span class="stat-number">10K+</span>
+                <span class="stat-number"><?= $alumni_label ?></span>
                 <span class="stat-label" data-lang-id="Alumni Sukses" data-lang-en="Successful Alumni">Alumni Sukses</span>
             </div>
             <div class="stat-divider"></div>
             <div class="stat-item">
-                <span class="stat-number">A</span>
+                <span class="stat-number"><?= sanitize($display_accreditation) ?></span>
                 <span class="stat-label" data-lang-id="Akreditasi Unggul" data-lang-en="Excellent Accreditation">Akreditasi Unggul</span>
             </div>
         </div>
     </div>
     
     <div class="hero-image">
-        <!-- PERBAIKAN: Menggunakan get_public_image -->
         <img src="<?= get_public_image($hero_image) ?>" alt="Kampus UKJP" loading="eager">
         <div class="hero-image-float-card">
             <div class="float-icon" style="font-size: 2.5rem; line-height: 1;">
@@ -148,17 +177,17 @@ function getExcerpt($text, $length = 120) {
         <p data-lang-id="Temukan jalur pendaftaran sesuai dengan minat dan bakatmu untuk masa depan yang gemilang." data-lang-en="Find the registration pathway according to your interests and talents for a brilliant future.">Temukan jalur pendaftaran sesuai dengan minat dan bakatmu untuk masa depan yang gemilang.</p>
     </div>
     
+    <?php if (count($featured_prodi) > 0): ?>
     <div class="prodi-grid" id="prodi-grid">
         <?php foreach($featured_prodi as $p): ?>
         <div class="prodi-card" data-jenjang="<?= $p['jenjang'] ?>" data-sistem="<?= $p['sistem_kuliah'] ?>">
             <div class="prodi-card-img">
                 <span class="prodi-badge"><?= sanitize($p['jenjang']) ?></span>
-                <!-- PERBAIKAN: Menggunakan get_public_image -->
                 <img src="<?= get_public_image($p['image_url']) ?>" alt="<?= sanitize($p['nama_prodi']) ?>" loading="lazy">
             </div>
             <div class="prodi-body">
                 <h3><?= sanitize($p['nama_prodi']) ?></h3>
-                <p><?= sanitize($lang === 'en' ? $p['description_en'] : $p['description_id']) ?></p>
+                <p><?= sanitize($lang === 'en' ? ($p['description_en'] ?: $p['description_id']) : $p['description_id']) ?></p>
                 <div class="prodi-meta">
                     <span class="jalur-count">
                         <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -174,12 +203,21 @@ function getExcerpt($text, $length = 120) {
         <?php endforeach; ?>
     </div>
     
+    <?php if (count($featured_prodi) >= 6): ?>
     <div class="section-footer-cta">
         <a href="prodi.php" class="btn btn-primary" style="padding: 1rem 2.5rem;">
             <span data-lang-id="Lihat Semua Program Studi" data-lang-en="View All Study Programs">Lihat Semua Program Studi</span>
             <svg style="width: 20px; height: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
     </div>
+    <?php endif; ?>
+    <?php else: ?>
+    <div style="text-align: center; padding: 4rem 2rem; color: var(--text-muted); background: var(--bg); border-radius: 16px;">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem; opacity: 0.5;"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <h3 style="margin-bottom: 0.5rem; color: var(--text);">Belum Ada Program Studi</h3>
+        <p data-lang-id="Admin akan segera menambahkan program studi unggulan." data-lang-en="Admin will add featured programs soon.">Admin akan segera menambahkan program studi unggulan.</p>
+    </div>
+    <?php endif; ?>
 </section>
 
 <!-- ==========================================
@@ -203,7 +241,6 @@ function getExcerpt($text, $length = 120) {
                 <a href="detail-berita.php?slug=<?= urlencode($n['slug']) ?>" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; height: 100%;">
                     <div style="position: relative; height: 200px; overflow: hidden;">
                         <span style="position: absolute; top: 1rem; left: 1rem; z-index: 2; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); color: var(--primary); padding: 0.3rem 0.8rem; border-radius: 50px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid rgba(255,255,255,0.5);"><?= sanitize($n['category'] ?? 'Umum') ?></span>
-                        <!-- PERBAIKAN: Menggunakan get_public_image -->
                         <img src="<?= get_public_image($n['thumbnail_url']) ?>" alt="<?= sanitize($title) ?>" loading="lazy" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22%3E%3Crect fill=%22%23e2e8f0%22 width=%22400%22 height=%22300%22/%3E%3C/svg%3E'">
                     </div>
                     <div class="prodi-body" style="flex-grow: 1; display: flex; flex-direction: column;">
@@ -261,7 +298,6 @@ function getExcerpt($text, $length = 120) {
                 
                 <div style="display: flex; align-items: center; gap: 1rem; margin-top: auto; padding-top: 1.25rem; border-top: 1px solid var(--border);">
                     <?php if (!empty($t['photo_url'])): ?>
-                        <!-- PERBAIKAN: Menggunakan get_public_image -->
                         <img src="<?= get_public_image($t['photo_url']) ?>" alt="<?= sanitize($t['name']) ?>" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary);" onerror="this.style.display='none'">
                     <?php else: ?>
                         <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.1rem; flex-shrink: 0;">
@@ -346,17 +382,63 @@ function getExcerpt($text, $length = 120) {
 <?php require_once 'includes/footer.php'; ?>
 
 <script>
+    // ==========================================
+    // COUNTER ANIMATION (Untuk Hero Stats)
+    // ==========================================
+    function animateCounter(el, target, duration = 1500) {
+        if (isNaN(target) || target === 0) return;
+        
+        const start = 0;
+        const startTime = performance.now();
+        
+        function update(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Easing out cubic
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = Math.floor(start + (target - start) * eased);
+            
+            el.textContent = current.toLocaleString() + '+';
+            
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            } else {
+                el.textContent = target.toLocaleString() + '+';
+            }
+        }
+        
+        requestAnimationFrame(update);
+    }
+    
+    // Observe counter elements
+    const counterObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const target = parseInt(entry.target.getAttribute('data-counter'));
+                if (!isNaN(target)) {
+                    animateCounter(entry.target, target);
+                }
+                counterObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.3 });
+    
+    document.querySelectorAll('[data-counter]').forEach(el => counterObserver.observe(el));
+    
+    // ==========================================
+    // FILTER PRODI (Existing, diperbaiki)
+    // ==========================================
     function filterProdi() {
         const jenjang = document.getElementById('filter-jenjang').value;
         const prodiId = document.getElementById('filter-prodi').value;
         const sistem = document.getElementById('filter-sistem').value;
-        const cards = document.querySelectorAll('.prodi-card');
+        const cards = document.querySelectorAll('#prodi-grid .prodi-card');
         
         let visibleCount = 0;
 
         cards.forEach((card, index) => {
             const matchJenjang = !jenjang || card.dataset.jenjang === jenjang;
-            const matchProdi = !prodiId || card.querySelector('a').href.includes(`prodi=${prodiId}`);
+            const matchProdi = !prodiId || card.querySelector('a')?.href.includes(`prodi=${prodiId}`);
             const matchSistem = !sistem || card.dataset.sistem === sistem;
             
             if (matchJenjang && matchProdi && matchSistem) {
@@ -382,10 +464,7 @@ function getExcerpt($text, $length = 120) {
             if (!noResultMsg) {
                 noResultMsg = document.createElement('div');
                 noResultMsg.className = 'no-result';
-                noResultMsg.style.gridColumn = '1 / -1';
-                noResultMsg.style.textAlign = 'center';
-                noResultMsg.style.padding = '3rem';
-                noResultMsg.style.color = 'var(--text-muted)';
+                noResultMsg.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted);';
                 noResultMsg.innerHTML = `
                     <svg style="width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -397,6 +476,11 @@ function getExcerpt($text, $length = 120) {
             }
         } else {
             if (noResultMsg) noResultMsg.remove();
+        }
+        
+        // Scroll to results
+        if (visibleCount > 0) {
+            document.getElementById('prodi')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }
 </script>

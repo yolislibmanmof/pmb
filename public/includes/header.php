@@ -13,22 +13,49 @@ $favicon_url = get_setting($pdo, 'favicon_url', $lang);
 $stmt = $pdo->query("SELECT * FROM menus WHERE is_active = 1 AND menu_position = 'header' ORDER BY sort_order ASC");
 $all_menus = $stmt->fetchAll();
 
-$menu_tree = [];
-// 1a. Masukkan menu utama (parent_id = 0)
-foreach ($all_menus as $m) {
-    if ($m['parent_id'] == 0) {
-        $menu_tree[$m['id']] = $m;
-        $menu_tree[$m['id']]['children'] = [];
-    }
-}
-// 1b. Masukkan sub-menu ke dalam parent-nya
-foreach ($all_menus as $m) {
-    if ($m['parent_id'] != 0 && isset($menu_tree[$m['parent_id']])) {
-        $menu_tree[$m['parent_id']]['children'][] = $m;
-    }
-}
-
 $current_page = basename($_SERVER['PHP_SELF']);
+
+// ==========================================
+// RECURSIVE MENU RENDERER (dropdown tak terbatas)
+// ==========================================
+function pmb_render_menu($all_menus, $parent_id, $level, $lang, $current_page) {
+    $out = '';
+    foreach ($all_menus as $m) {
+        if ((int)$m['parent_id'] !== (int)$parent_id) continue;
+        $label    = ($lang === 'en' && !empty($m['label_en'])) ? $m['label_en'] : $m['label_id'];
+        $active   = ($current_page == $m['url']) ? 'active' : '';
+        $target   = $m['target'] ?: '_self';
+        $icon     = renderMenuIcon($m['icon'], $m['url'], $m['label_id']);
+        $children = pmb_render_menu($all_menus, $m['id'], $level + 1, $lang, $current_page);
+        $has_child = trim($children) !== '';
+
+        if ($level === 0) {
+            $out .= '<div class="nav-item">';
+            if ($has_child) {
+                $out .= '<a href="' . sanitize($m['url'] !== '#' ? $m['url'] : '#') . '" class="nav-link ' . $active . '">' . $icon
+                      . '<span>' . sanitize($label) . '</span>'
+                      . '<svg class="chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></a>';
+                $out .= '<div class="dropdown-menu">' . $children . '</div>';
+            } else {
+                $out .= '<a href="' . sanitize($m['url']) . '" class="nav-link ' . $active . '" target="' . sanitize($target) . '">' . $icon
+                      . '<span>' . sanitize($label) . '</span></a>';
+            }
+            $out .= '</div>';
+        } else {
+            if ($has_child) {
+                $out .= '<div class="nav-item">';
+                $out .= '<a href="#" class="dropdown-item ' . $active . '">' . $icon . '<span>' . sanitize($label) . '</span>'
+                      . '<svg class="chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></a>';
+                $out .= '<div class="dropdown-menu">' . $children . '</div>';
+                $out .= '</div>';
+            } else {
+                $out .= '<a href="' . sanitize($m['url']) . '" class="dropdown-item ' . $active . '" target="' . sanitize($target) . '">' . $icon
+                      . '<span>' . sanitize($label) . '</span></a>';
+            }
+        }
+    }
+    return $out;
+}
 
 // CATATAN: Fungsi renderMenuIcon() dan get_public_image() 
 // sudah dipindahkan ke config/functions.php agar tidak bentrok (redeclare).
@@ -89,6 +116,35 @@ $current_page = basename($_SERVER['PHP_SELF']);
             }
             .nav-link::after { display: none; }
         }
+
+        /* ====== ANTI-WRAP: menu top-level & dropdown selalu 1 baris ====== */
+.nav-links { gap: 1.25rem; }
+.nav-link, .nav-link span { white-space: nowrap; }
+.dropdown-item, .dropdown-item span { white-space: nowrap; }
+.dropdown-item span { flex: 1; }
+
+/* ====== DROPDOWN melebar sesuai teks terpanjang (rapi) ====== */
+.dropdown-menu { min-width: max-content; max-width: min(340px, 90vw); }
+
+/* ====== NESTED DROPDOWN (level 2+) flyout ke kanan ====== */
+.dropdown-menu .nav-item { position: relative; }
+.dropdown-menu .nav-item .dropdown-menu {
+    position: absolute; top: -0.5rem; left: 100%; margin-left: 6px;
+    opacity: 0; visibility: hidden; transform: translateX(10px);
+}
+.dropdown-menu .nav-item:hover > .dropdown-menu {
+    opacity: 1; visibility: visible; transform: translateX(0);
+}
+.chevron-right { width: 14px; height: 14px; margin-left: auto; opacity: 0.6; flex-shrink: 0; }
+
+/* ====== MOBILE: nested jadi accordion statis ====== */
+@media (max-width: 900px) {
+    .dropdown-menu .nav-item .dropdown-menu {
+        position: static; transform: none; margin-left: 1rem; margin-top: 0.25rem;
+        opacity: 1; visibility: visible; box-shadow: none; border: none; background: transparent;
+    }
+}
+
     </style>
 </head>
 <body>
@@ -101,39 +157,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             
             <!-- Desktop & Mobile Links -->
             <div class="nav-links" id="nav-links">
-                <?php foreach($menu_tree as $menu): 
-                    $label = ($lang === 'en' && !empty($menu['label_en'])) ? $menu['label_en'] : $menu['label_id'];
-                    $is_active = ($current_page == $menu['url']) ? 'active' : '';
-                    $has_children = !empty($menu['children']);
-                ?>
-                    <div class="nav-item">
-                        <?php if ($has_children): ?>
-                            <!-- Parent Menu with Dropdown -->
-                            <a href="<?= sanitize($menu['url']) ?: '#' ?>" class="nav-link <?= $is_active ?>" style="cursor: default;">
-                                <?= renderMenuIcon($menu['icon'], $menu['url'], $menu['label_id']) ?>
-                                <span><?= sanitize($label) ?></span>
-                                <svg class="chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-                            </a>
-                            <div class="dropdown-menu">
-                                <?php foreach($menu['children'] as $child): 
-                                    $child_label = ($lang === 'en' && !empty($child['label_en'])) ? $child['label_en'] : $child['label_id'];
-                                    $child_active = ($current_page == $child['url']) ? 'active' : '';
-                                ?>
-                                    <a href="<?= sanitize($child['url']) ?>" class="dropdown-item <?= $child_active ?>" target="<?= sanitize($child['target'] ?: '_self') ?>">
-                                        <?= renderMenuIcon($child['icon'], $child['url'], $child['label_id']) ?>
-                                        <span><?= sanitize($child_label) ?></span>
-                                    </a>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php else: ?>
-                            <!-- Regular Menu Item -->
-                            <a href="<?= sanitize($menu['url']) ?>" class="nav-link <?= $is_active ?>" target="<?= sanitize($menu['target'] ?: '_self') ?>">
-                                <?= renderMenuIcon($menu['icon'], $menu['url'], $menu['label_id']) ?>
-                                <span><?= sanitize($label) ?></span>
-                            </a>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
+<?= pmb_render_menu($all_menus, 0, 0, $lang, $current_page) ?>
 
                 <!-- Right Side Actions -->
                 <div style="display: flex; align-items: center; gap: 1rem; margin-left: 1rem; padding-left: 1rem; border-left: 1px solid var(--border);">

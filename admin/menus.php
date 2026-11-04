@@ -58,6 +58,47 @@ if (!function_exists('renderMenuIcon')) {
     }
 }
 
+// ==========================================
+// HELPER: Build options parent bertingkat (dengan indentasi)
+// ==========================================
+function build_parent_options($menus, $parent_id = 0, $level = 0) {
+    $out = '';
+    foreach ($menus as $m) {
+        if ((int)$m['parent_id'] !== (int)$parent_id) continue;
+        $indent = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $level);
+        $arrow  = $level > 0 ? '↳ ' : '';
+        $out .= '<option value="' . (int)$m['id'] . '">' . $indent . $arrow . sanitize($m['label_id']) . ' [' . sanitize($m['menu_position']) . ']</option>';
+        $out .= build_parent_options($menus, $m['id'], $level + 1);
+    }
+    return $out;
+}
+
+// ==========================================
+// HELPER: Urutkan menu secara hierarchical (untuk tabel nested)
+// ==========================================
+function flatten_menu_tree($menus, $parent_id, $level, &$result) {
+    foreach ($menus as $m) {
+        if ((int)$m['parent_id'] === (int)$parent_id) {
+            $m['_level'] = $level;
+            $result[] = $m;
+            flatten_menu_tree($menus, $m['id'], $level + 1, $result);
+        }
+    }
+}
+
+// ==========================================
+// HELPER: Ambil semua ID turunan (cegah circular reference)
+// ==========================================
+function get_descendant_ids($menus, $id) {
+    $ids = [(int)$id];
+    foreach ($menus as $m) {
+        if ((int)$m['parent_id'] === (int)$id) {
+            $ids = array_merge($ids, get_descendant_ids($menus, $m['id']));
+        }
+    }
+    return $ids;
+}
+
 // ======================================================================
 // 2. HANDLE CRUD ACTIONS (SEBELUM ADA OUTPUT HTML)
 // ======================================================================
@@ -92,6 +133,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
         } elseif ($action === 'edit') {
             $id = (int)$_POST['id'];
+            // Cegah circular: parent tidak boleh diri sendiri / turunannya
+            $new_parent = (int)($_POST['parent_id'] ?? 0);
+            if ($new_parent !== 0) {
+                $all = $pdo->query("SELECT id, parent_id FROM menus")->fetchAll();
+                if ($new_parent === $id || in_array($new_parent, get_descendant_ids($all, $id))) {
+                    $_SESSION['toast'] = ['type' => 'error', 'title' => 'Gagal', 'message' => 'Menu tidak boleh menjadi child dari dirinya sendiri atau turunannya.'];
+                    header('Location: menus.php');
+                    exit;
+                }
+            }
             $stmt = $pdo->prepare("UPDATE menus SET parent_id=?, label_id=?, label_en=?, url=?, icon=?, target=?, menu_position=?, sort_order=?, is_active=? WHERE id=?");
             $stmt->execute([
                 (int)($_POST['parent_id'] ?? 0),
@@ -172,8 +223,12 @@ require_once 'includes/header.php';
 $stmt = $pdo->query("SELECT * FROM menus ORDER BY menu_position ASC, sort_order ASC");
 $menus = $stmt->fetchAll();
 
-// Ambil hanya menu utama (parent_id = 0) untuk dropdown "Parent Menu" di form
-$parent_menus = $pdo->query("SELECT id, label_id, label_en FROM menus WHERE parent_id = 0 ORDER BY sort_order ASC")->fetchAll();
+// Build urutan hierarchical (nested) untuk tabel, per posisi
+$ordered_menus = [];
+foreach (['header', 'footer'] as $pos) {
+    $subset = array_values(array_filter($menus, fn($m) => $m['menu_position'] === $pos));
+    flatten_menu_tree($subset, 0, 0, $ordered_menus);
+}
 
 // Opsi Icon
 $icon_options = [
@@ -225,17 +280,11 @@ $icon_options = [
             </thead>
             <tbody>
                 <?php if (count($menus) > 0): ?>
-                    <?php foreach($menus as $index => $m): 
-                        // Cek apakah ini sub-menu
-                        $is_child = $m['parent_id'] > 0;
-                        $parent_label = '';
-                        if ($is_child) {
-                            $p_stmt = $pdo->prepare("SELECT label_id FROM menus WHERE id = ?");
-                            $p_stmt->execute([$m['parent_id']]);
-                            $parent_label = $p_stmt->fetchColumn();
-                        }
-                    ?>
-                    <tr style="<?= $is_child ? 'background: rgba(30, 64, 175, 0.03);' : '' ?>">
+<?php foreach($ordered_menus as $index => $m): 
+    $level = (int)($m['_level'] ?? 0);
+    $is_child = $level > 0;
+?>
+<tr style="<?= $is_child ? 'background: rgba(30, 64, 175, ' . (0.03 * $level) . ');' : '' ?>">
                         <td>
                             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                 <form method="POST" style="display: inline;">
@@ -258,12 +307,12 @@ $icon_options = [
                                 </form>
                             </div>
                         </td>
-                        <td style="font-weight: 600;">
-                            <?= $is_child ? '↳ ' : '' ?><?= sanitize($m['label_id']) ?>
-                            <?php if ($is_child): ?>
-                                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 400;">Child of: <?= sanitize($parent_label) ?></div>
-                            <?php endif; ?>
-                        </td>
+                          <td style="font-weight: 600; padding-left: <?= 1.5 + ($level * 1.75) ?>rem;">
+    <?= $is_child ? '↳ ' : '' ?><?= sanitize($m['label_id']) ?>
+    <?php if ($is_child): ?>
+        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 400;">Level <?= $level + 1 ?> (sub-menu)</div>
+    <?php endif; ?>
+</td>
                         <td><?= sanitize($m['label_en']) ?></td>
                         <td><code style="background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;"><?= sanitize($m['url']) ?></code></td>
                         <td>
@@ -346,12 +395,10 @@ $icon_options = [
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="form-group">
                         <label>Parent Menu (Untuk Dropdown)</label>
-                        <select name="parent_id" id="parent_id" class="form-select">
-                            <option value="0">-- Menu Utama (Tidak Ada Parent) --</option>
-                            <?php foreach($parent_menus as $pm): ?>
-                                <option value="<?= $pm['id'] ?>"><?= sanitize($pm['label_id']) ?> (<?= sanitize($pm['label_en']) ?>)</option>
-                            <?php endforeach; ?>
-                        </select>
+<select name="parent_id" id="parent_id" class="form-select">
+    <option value="0">-- Menu Utama (Tidak Ada Parent) --</option>
+    <?= build_parent_options($menus) ?>
+</select>
                         <div class="form-hint">Pilih menu lain untuk menjadikannya sub-menu.</div>
                     </div>
                     <div class="form-group">

@@ -58,7 +58,8 @@ $stmt_prodi_stats = $pdo->query("
     LIMIT 5
 ");
 $prodi_stats = $stmt_prodi_stats->fetchAll();
-$max_prodi_stat = max(array_column($prodi_stats, 'total_pendaftar')) ?: 1;
+$max_prodi_stat = count($prodi_stats) > 0 ? (int)max(array_column($prodi_stats, 'total_pendaftar')) : 0;
+if ($max_prodi_stat < 1) $max_prodi_stat = 1; // Cegah division by zero
 ?>
 
 <!-- ==========================================
@@ -83,10 +84,10 @@ $max_prodi_stat = max(array_column($prodi_stats, 'total_pendaftar')) ?: 1;
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 Lihat Website
             </a>
-            <button onclick="showToast('Info', 'Fitur export akan segera tersedia di update berikutnya.', 'info')" class="btn btn-primary">
+            <a href="export.php" class="btn btn-primary">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Export Laporan
-            </button>
+    Export Laporan
+</a>
         </div>
     </div>
 </div>
@@ -264,11 +265,12 @@ $max_prodi_stat = max(array_column($prodi_stats, 'total_pendaftar')) ?: 1;
                 <tbody>
                     <?php if (count($recent_applicants) > 0): ?>
                         <?php foreach($recent_applicants as $app): 
-                            $badge_class = match($app['status_daftar']) {
-                                'Diverifikasi' => 'badge-success',
-                                'Ditolak' => 'badge-danger',
-                                default => 'badge-warning'
-                            };
+$badge_class = match($app['status_daftar']) {
+    'Diverifikasi', 'Lulus', 'Registrasi Ulang' => 'badge-success',
+    'Ditolak', 'Tidak Lulus' => 'badge-danger',
+    'Pending' => 'badge-warning',
+    default => 'badge-info'
+};
                             $initial = strtoupper(substr($app['nama_lengkap'], 0, 1));
                             $colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
                             $avatar_color = $colors[crc32($app['nama_lengkap']) % count($colors)];
